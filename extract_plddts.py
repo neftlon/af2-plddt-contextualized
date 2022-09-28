@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 import tarfile
 import gzip
-import tqdm
 import tempfile
+
+import tqdm
 import json
 from Bio.PDB.PDBParser import PDBParser
+from concurrent.futures import ProcessPoolExecutor
 
 
 def get_structure_from_lines(pdb_parser, id, pdb_lines):
-    """emulate the `get_structure` method of the `PDBParser` to process an in-memory PDB file since the function only allows for passing a filename as an argument"""
+    """Emulate the `get_structure` method of the `PDBParser` to process an in-memory PDB file since the function only
+    allows for passing a filename as an argument """
     pdb_parser.header = None
     pdb_parser.trailer = None
     pdb_parser.structure_builder.init_structure(id)
@@ -21,7 +23,7 @@ def get_structure_from_lines(pdb_parser, id, pdb_lines):
 
 
 def get_plddts(struc):
-    """get pLDDT scores for each atom inside the structure of a PDB file's structure"""
+    """Get pLDDT scores for each atom inside the structure of a PDB file's structure"""
     scores = []
     for model in struc:
         for chain in model:
@@ -43,9 +45,18 @@ def get_plddts(struc):
     return scores
 
 
-def extract_plddts_from_tarfile_item(params):
-    tar, filename = params
-    with tar.extractfile(filename) as pdb_gz:
+def extract_pdb_gzs_from_tar_file(tar_filename, dst_dirname):
+    """Extract all .pdb.gz files from a .tar file into an existing destination directory at `dst_dirname`"""
+    with tarfile.open(tar_filename) as tar:
+        members = tar.getmembers()
+        # only take PDB files, ignore CIF
+        members = filter(lambda member: member.name.endswith(".pdb.gz"), members)
+        tar.extractall(dst_dirname, members)
+
+
+def extract_plddts_from_pdb_gz(filename):
+    """Extract the pLDDT scores from a compressed PDB (.pdb.gz) file."""
+    with open(filename, "rb") as pdb_gz:
         # decompress PDB, obtain its structure information, and extract pLDDT scores
         pdb_gz = pdb_gz.read()
         pdb_bytes = gzip.decompress(pdb_gz)
@@ -58,7 +69,19 @@ def extract_plddts_from_tarfile_item(params):
         # TODO(johannes): is this a correct way to extract the UniProt identifier?
         uniprot_id = filename.split("-")[1]
         return uniprot_id, pdb_plddts
-    return None
+
+
+def extract_plddts_from_pdb_gzs(pdb_gzs_path):
+    """Extract pLDDT scores from each compressed PDB file (.pdb.gz) inside a given directory `pdb_gzs_path` and
+    return a `dict` mapping from UniProt identifier to a `list` of per-residue pLDDT scores (`float` from 0 to 100)."""
+    filenames = os.listdir(pdb_gzs_path)
+    filenames = map(lambda filename: os.path.join(pdb_gzs_path, filename), filenames)  # reconstruct full path
+    filenames = list(filenames)
+
+    # since the `extract_plddts_from_pdb_gz` function is CPU-bound, try to run it in parallel.
+    with ProcessPoolExecutor() as ppe:
+        return dict(tqdm.tqdm(ppe.map(extract_plddts_from_pdb_gz, filenames), total=len(filenames)))
+
 
 if __name__ == "__main__":
     # find available data files
@@ -67,6 +90,7 @@ if __name__ == "__main__":
     for name in os.listdir(data_dir):
         path = os.path.join(data_dir, name)
         if os.path.isfile(path) and path.endswith(".tar"):
+            name, _ = os.path.splitext(name)  # take name w/o file extension
             names.append(name)
             paths.append(path)
 
@@ -77,25 +101,19 @@ if __name__ == "__main__":
     # collect pLDDT scores from PDB files
     for name, path in zip(names, paths):
         print(f"parsing {name}")
-        num_pdb_files = 0
-        proteome_plddts = {}
-        with tarfile.open(path) as tar:
-            print(" opened TAR file")
-            filenames = tar.getnames()
-            filenames = list(filter(lambda filename: filename.endswith(".pdb.gz"), filenames))  # only take PDB files, ignore CIF
-            print(f" found {len(filenames)} files in TAR file")
-            for filename in tqdm.tqdm(filenames):
-                if pair := extract_plddts_from_tarfile_item((tar, filename)):
-                    uniprot_id, pdb_plddts = pair
-                    proteome_plddts[uniprot_id] = pdb_plddts
-                    num_pdb_files += 1
-                else:
-                    print(f" ERROR: failed to process {filename}", file=sys.stderr)
-        print(f" found and processed {num_pdb_files} PDB files from TAR file")
 
-        # store cached pLDDT scores as a file
-        outfilename = os.path.join(data_dir, "plddts.json")
-        with open(outfilename, "w") as outfile:
-            json.dump(proteome_plddts, outfile)
-        print(f" wrote {outfilename} containing extracted pLDDT scores")
+        # extract .pdb.gz files into its own folder
+        with tempfile.TemporaryDirectory() as pdb_gzs_path:
+            print(f" extracting TAR file items to {pdb_gzs_path}")
+            extract_pdb_gzs_from_tar_file(path, pdb_gzs_path)
 
+            # extract .pdb.gz files into .pdb files
+            print(f" extracting pLDDT scores from files in {pdb_gzs_path}")
+            proteome_plddts = extract_plddts_from_pdb_gzs(pdb_gzs_path)
+
+            # write pLDDT scores to .json
+            plddts_path = os.path.join(data_dir, name + "_plddts.json")
+            print(f" writing output file to {plddts_path} containing pLDDT scores for {len(proteome_plddts)} proteins")
+            with open(plddts_path, "w") as outfile:
+                json.dump(proteome_plddts, outfile)
+            print(" done!")
