@@ -2,8 +2,10 @@
 
 import os
 import json
+import streamlit as st
 
 
+@st.experimental_singleton(suppress_st_warning=True)
 def load_plddt_scores(path):
     """Load pLDDT scores into a `dict` from a `.json` file mapping UniProt identifiers to a list o per-residue pLDDT
     scores"""
@@ -11,6 +13,7 @@ def load_plddt_scores(path):
         return json.load(infile)
 
 
+@st.experimental_singleton
 def load_seth_preds(path):
     """Load SETH predictions into a `dict` mapping UniProt identifiers to a list of per-residue CheZOD scores"""
     with open(path) as infile:
@@ -26,8 +29,8 @@ def load_seth_preds(path):
 
 
 if __name__ == "__main__":
-    import itertools
-    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
 
     data_dir = "./data"
     plddts_filename = "UP000005640_9606_HUMAN_v3_plddts.json"
@@ -51,12 +54,21 @@ if __name__ == "__main__":
     else:
         print("per-protein scores have have equal UniProt identifiers, nice!")
 
-    print("plotting results")
-    f, ax = plt.subplots(figsize=(6.5, 6.5))
-    for prot_id in itertools.islice(shared_prot_ids, 10):
-        prot_plddts = plddts[prot_id]
-        prot_pred_dis = seth_preds[prot_id]
+    """## Parameters"""
+    prot_id = st.selectbox("Which protein would you like to look at?", shared_prot_ids)
+    prot_plddts = plddts[prot_id]
+    prot_pred_dis = seth_preds[prot_id]
+    scale_factor = st.slider("Which scale factor should be applied to the predicted disorder score?", 0.1, 10.0, 5.0, 0.1)  # to map from range [0;20] to [0;100]
+    scaled_prot_pred_dis = scale_factor * np.array(prot_pred_dis)
 
-        ax.scatter(range(len(prot_plddts)), prot_plddts, label=prot_id)
-    ax.legend(title="per-residue pLDDT")
-    plt.show()
+    """## Per-protein metrics"""
+    st.metric("mean pLDDT", np.mean(prot_plddts))
+    st.metric(f"mean scaled {scale_factor}x predicted disorder", np.mean(scaled_prot_pred_dis))
+
+    """## Per-residue metrics"""
+    n = len(prot_plddts)
+    df = pd.DataFrame(
+        np.array([prot_plddts, scaled_prot_pred_dis]).transpose(),
+        columns=["pLDDT score", "scaled pred. disorder"],
+    )
+    st.line_chart(df)

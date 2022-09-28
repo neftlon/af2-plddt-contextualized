@@ -13,7 +13,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 def get_structure_from_lines(pdb_parser, id, pdb_lines):
     """Emulate the `get_structure` method of the `PDBParser` to process an in-memory PDB file since the function only
-    allows for passing a filename as an argument """
+    allows for passing a filename as an argument"""
     pdb_parser.header = None
     pdb_parser.trailer = None
     pdb_parser.structure_builder.init_structure(id)
