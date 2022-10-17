@@ -30,7 +30,9 @@ def load_seth_preds(path):
 
 if __name__ == "__main__":
     import numpy as np
+    import matplotlib.pyplot as plt
     import pandas as pd
+    import seaborn as sns
 
     data_dir = "./data"
     plddts_filename = "UP000005640_9606_HUMAN_v3_plddts.json"
@@ -54,21 +56,39 @@ if __name__ == "__main__":
     else:
         print("per-protein scores have have equal UniProt identifiers, nice!")
 
-    """## Parameters"""
-    prot_id = st.selectbox("Which protein would you like to look at?", shared_prot_ids)
-    prot_plddts = plddts[prot_id]
-    prot_pred_dis = seth_preds[prot_id]
-    scale_factor = st.slider("Which scale factor should be applied to the predicted disorder score?", 0.1, 10.0, 5.0, 0.1)  # to map from range [0;20] to [0;100]
-    scaled_prot_pred_dis = scale_factor * np.array(prot_pred_dis)
+    with st.sidebar:
+        """## Parameters"""
+        prot_id = st.selectbox("Which protein would you like to look at?", shared_prot_ids)
+        prot_plddts = np.array(plddts[prot_id])
+        prot_pred_dis = np.array(seth_preds[prot_id])
+        scale_factor = st.slider("Which scale factor should be applied to the predicted disorder score?", 0.1, 10.0, 5.0, 0.1)  # to map from range [0;20] to [0;100]
+        scaled_prot_pred_dis = scale_factor * prot_pred_dis
 
     """## Per-protein metrics"""
     st.metric("mean pLDDT", np.mean(prot_plddts))
     st.metric(f"mean scaled {scale_factor}x predicted disorder", np.mean(scaled_prot_pred_dis))
 
-    """## Per-residue metrics"""
+    """## Per-residue scores"""
     n = len(prot_plddts)
+
+    # plot datasets
     df = pd.DataFrame(
         np.array([prot_plddts, scaled_prot_pred_dis]).transpose(),
         columns=["pLDDT score", "scaled pred. disorder"],
     )
     st.line_chart(df)
+
+    # plot metrics
+    """
+    ## Dataset pairwise correlation
+    
+    The following matrix shows the correlation between each pair of residues in the selected protein.
+    """
+    obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=1)
+    corr_mat = np.cov(obs_mat)
+    fig, ax = plt.subplots()
+    ax.set_xlabel("res idx")
+    ax.set_ylabel("res idx")
+    cax = ax.matshow(corr_mat)
+    fig.colorbar(cax)
+    st.pyplot(fig)
