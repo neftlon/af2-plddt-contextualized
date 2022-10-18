@@ -30,6 +30,7 @@ def load_seth_preds(path):
 
 if __name__ == "__main__":
     import numpy as np
+    from scipy import stats
     import matplotlib.pyplot as plt
     import pandas as pd
     import seaborn as sns
@@ -84,8 +85,21 @@ if __name__ == "__main__":
     
     The following matrix shows the correlation between each pair of residues in the selected protein.
     """
-    obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=1)
-    corr_mat = np.cov(obs_mat)
+
+    def covariance_corr():
+        obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=1)
+        return np.cov(obs_mat)
+
+    def spearman_corr():
+        st.write(f"{prot_plddts.shape}, {prot_pred_dis.shape}")
+        rho, pval = stats.spearmanr(prot_plddts, prot_pred_dis)
+        st.write(f"{rho.shape}")
+        st.metric("p-value", pval)
+        return rho
+
+    corr_metric = st.radio("Pick a correlation metric", ["covariance", "spearman"])
+    corr_mat = {"covariance": covariance_corr, "spearman": spearman_corr}[corr_metric]()
+
     fig, ax = plt.subplots()
     ax.set_xlabel("res idx")
     ax.set_ylabel("res idx")
