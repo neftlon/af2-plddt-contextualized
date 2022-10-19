@@ -2,6 +2,7 @@
 
 import os
 import json
+from tkinter import Y
 import streamlit as st
 
 
@@ -35,7 +36,7 @@ if __name__ == "__main__":
     import pandas as pd
     import seaborn as sns
 
-    sns.set_theme(style="ticks")
+    #sns.set_theme(style="ticks", palette="vlag")
 
     data_dir = "./data"
     plddts_filename = "UP000005640_9606_HUMAN_v3_plddts.json"
@@ -65,54 +66,59 @@ if __name__ == "__main__":
         prot_plddts = np.array(plddts[prot_id])
         prot_pred_dis = np.array(seth_preds[prot_id])
 
+    # Construct DataFrame for visualization with seaborn
+    df = pd.DataFrame(
+            np.array([prot_plddts, prot_pred_dis]).transpose(),
+            columns=["pLDDT score", "pred. disorder"],
+        )
+
     """## Per-protein metrics"""
-    
+
     col_plddts, col_pred_dis = st.columns(2)
     with col_plddts:
         """### pLDDT"""
         st.metric("mean pLDDT", f"{np.mean(prot_plddts):0.04f}")
+        st.metric("std pLDDT", f"{np.std(prot_plddts):0.04f}")
         fig, ax = plt.subplots()
         ax.set_ylim(0, 100)
-        sns.boxplot(prot_plddts, palette="vlag")
+        sns.boxplot(data=df, y="pLDDT score", palette="vlag")
         st.pyplot(fig)
 
-    with col_pred_dis:   
+    with col_pred_dis:
         """### Predicted disorder"""
-        st.metric(f"mean predicted disorder", f"{np.mean(prot_pred_dis):0.04f}")   
+        st.metric(f"mean predicted disorder",
+                  f"{np.mean(prot_pred_dis):0.04f}")
+        st.metric(f"std predicted disorder",
+                  f"{np.std(prot_pred_dis):0.04f}")
         fig, ax = plt.subplots()
         ax.set_ylim(-20, 20)
-        sns.boxplot(prot_pred_dis, palette="vlag")
+        sns.boxplot(data=df, y="pred. disorder", palette="vlag")
         st.pyplot(fig)
 
     """## Per-residue scores"""
-    n = len(prot_plddts)
-
-    # plot datasets
-    df = pd.DataFrame(
-        np.array([prot_plddts, prot_pred_dis]).transpose(),
-        columns=["pLDDT score", "scaled pred. disorder"],
-    )
-    st.line_chart(df)
-
     fig, ax = plt.subplots()
-    ax.set_xlabel("pLDDT")
-    ax.set_ylabel("pred. dis.")
-    # sns.despine(fig, left=True, right=True, bottom=True)
-    sns.scatterplot(x=prot_plddts, y=prot_pred_dis, palette="vlag", ax=ax)
+    sns.lineplot(df, palette="vlag")
     st.pyplot(fig)
 
-    # plot metrics
+
+    """
+    ## Scatterplot of pLDDT and predicted disorder
+    """
+    fig, ax = plt.subplots()
+    sns.scatterplot(df, x="pLDDT score", y="pred. disorder", palette="vlag")
+    st.pyplot(fig)
+
     """
     ## Dataset pairwise correlation
-    
-    The following stats show the correlation between the plDDT and the SETH predictions for the selected protein
+
+    The following stats show the correlation between the pLDDT and the SETH predictions for the selected protein.
     """
 
     obs_mat = np.stack([prot_plddts, prot_pred_dis], axis=0)
 
     def covariance():
-        corr_mat = np.cov(obs_mat)
-        st.metric("Covariance", f"{corr_mat[0, 1]:0.04f}")
+        cov_mat = np.cov(obs_mat)
+        st.metric("Covariance", f"{cov_mat[0, 1]:0.04f}")
 
     def pearson_corr():
         corr_mat = np.corrcoef(obs_mat)
@@ -120,9 +126,13 @@ if __name__ == "__main__":
 
     def spearman_corr():
         rho, pval = stats.spearmanr(prot_plddts, prot_pred_dis)
+        st.metric("Spearman correlation rho", f"{rho:0.04f}")
         st.metric("Spearman p-value", f"{pval:0.04f}")
-        st.metric("Spearman rho", f"{rho:0.04f}")
 
-    covariance()
-    spearman_corr()
-    pearson_corr()
+    col_left, col_right = st.columns(2)
+    with col_left:
+        covariance()
+        pearson_corr()
+
+    with col_right:
+        spearman_corr()
