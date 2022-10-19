@@ -88,8 +88,18 @@ if __name__ == "__main__":
 
     def covariance_corr():
         obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=0)
-        st.table(obs_mat)
         corr_mat = np.cov(obs_mat)
+
+        fig, ax = plt.subplots()
+        ax.set_xlabel("res idx")
+        ax.set_ylabel("res idx")
+        cax = ax.matshow(corr_mat)
+        fig.colorbar(cax)
+        st.pyplot(fig)
+
+    def pearson_corr():
+        obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=0)
+        corr_mat = np.corrcoef(obs_mat)
 
         fig, ax = plt.subplots()
         ax.set_xlabel("res idx")
@@ -103,7 +113,7 @@ if __name__ == "__main__":
         st.metric("p-value", f"{pval:0.04f}")
         st.metric("rho", f"{rho:0.04f}")
 
-    corr_metric = st.radio("Pick a correlation metric", ["covariance", "spearman"])
-    {"covariance": covariance_corr, "spearman": spearman_corr}[corr_metric]()
+    corr_metric = st.radio("Pick a correlation metric", ["covariance", "spearman", "pearson"])
+    {"covariance": covariance_corr, "spearman": spearman_corr, "pearson": pearson_corr}[corr_metric]()
 
     
