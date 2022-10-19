@@ -12,6 +12,14 @@ The project uses Python for scripts. The root directory contains a `requirements
 appropriate environment. For instance, `python3 -m pip install -r requirement.txt` installs the dependencies in the
 current Python environment.
 
+It is recommended to use [conda](https://docs.conda.io/en/latest/), you can create a new requirement with all dependencies installed like the following:
+
+```bash
+conda create --name env python=3.9
+conda activate env
+pip install -r requirements.txt
+```
+
 For using the download script, the `wget` utility must be installed on the system.
 
 ### 1. Data download
