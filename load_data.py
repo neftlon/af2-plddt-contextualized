@@ -66,8 +66,8 @@ if __name__ == "__main__":
         scaled_prot_pred_dis = scale_factor * prot_pred_dis
 
     """## Per-protein metrics"""
-    st.metric("mean pLDDT", np.mean(prot_plddts))
-    st.metric(f"mean scaled {scale_factor}x predicted disorder", np.mean(scaled_prot_pred_dis))
+    st.metric("mean pLDDT", f"{np.mean(prot_plddts):0.04f}")
+    st.metric(f"mean scaled {scale_factor}x predicted disorder", f"{np.mean(scaled_prot_pred_dis):0.04f}")
 
     """## Per-residue scores"""
     n = len(prot_plddts)
@@ -83,37 +83,24 @@ if __name__ == "__main__":
     """
     ## Dataset pairwise correlation
     
-    The following matrix shows the correlation between each pair of residues in the selected protein.
+    The following stats show the correlation between the plDDT and the SETH predictions for the selected protein
     """
 
-    def covariance_corr():
+    def covariance():
         obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=0)
         corr_mat = np.cov(obs_mat)
-
-        fig, ax = plt.subplots()
-        ax.set_xlabel("res idx")
-        ax.set_ylabel("res idx")
-        cax = ax.matshow(corr_mat)
-        fig.colorbar(cax)
-        st.pyplot(fig)
+        st.metric("Covariance", f"{corr_mat[0, 1]:0.04f}")
 
     def pearson_corr():
         obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=0)
         corr_mat = np.corrcoef(obs_mat)
-
-        fig, ax = plt.subplots()
-        ax.set_xlabel("res idx")
-        ax.set_ylabel("res idx")
-        cax = ax.matshow(corr_mat)
-        fig.colorbar(cax)
-        st.pyplot(fig)
+        st.metric("Pearson correlation", f"{corr_mat[0, 1]:0.04f}")
 
     def spearman_corr():
         rho, pval = stats.spearmanr(prot_plddts, prot_pred_dis)
-        st.metric("p-value", f"{pval:0.04f}")
-        st.metric("rho", f"{rho:0.04f}")
+        st.metric("Spearman p-value", f"{pval:0.04f}")
+        st.metric("Spearman rho", f"{rho:0.04f}")
 
-    corr_metric = st.radio("Pick a correlation metric", ["covariance", "spearman", "pearson"])
-    {"covariance": covariance_corr, "spearman": spearman_corr, "pearson": pearson_corr}[corr_metric]()
-
-    
+    covariance()
+    spearman_corr()
+    pearson_corr()
