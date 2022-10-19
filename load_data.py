@@ -35,6 +35,8 @@ if __name__ == "__main__":
     import pandas as pd
     import seaborn as sns
 
+    sns.set_theme(style="ticks")
+
     data_dir = "./data"
     plddts_filename = "UP000005640_9606_HUMAN_v3_plddts.json"
     seth_preds_filename = "Human_SETH_preds.txt"
@@ -62,22 +64,42 @@ if __name__ == "__main__":
         prot_id = st.selectbox("Which protein would you like to look at?", shared_prot_ids)
         prot_plddts = np.array(plddts[prot_id])
         prot_pred_dis = np.array(seth_preds[prot_id])
-        scale_factor = st.slider("Which scale factor should be applied to the predicted disorder score?", 0.1, 10.0, 5.0, 0.1)  # to map from range [0;20] to [0;100]
-        scaled_prot_pred_dis = scale_factor * prot_pred_dis
 
     """## Per-protein metrics"""
-    st.metric("mean pLDDT", f"{np.mean(prot_plddts):0.04f}")
-    st.metric(f"mean scaled {scale_factor}x predicted disorder", f"{np.mean(scaled_prot_pred_dis):0.04f}")
+    
+    col_plddts, col_pred_dis = st.columns(2)
+    with col_plddts:
+        """### pLDDT"""
+        st.metric("mean pLDDT", f"{np.mean(prot_plddts):0.04f}")
+        fig, ax = plt.subplots()
+        ax.set_ylim(0, 100)
+        sns.boxplot(prot_plddts, palette="vlag")
+        st.pyplot(fig)
+
+    with col_pred_dis:   
+        """### Predicted disorder"""
+        st.metric(f"mean predicted disorder", f"{np.mean(prot_pred_dis):0.04f}")   
+        fig, ax = plt.subplots()
+        ax.set_ylim(-20, 20)
+        sns.boxplot(prot_pred_dis, palette="vlag")
+        st.pyplot(fig)
 
     """## Per-residue scores"""
     n = len(prot_plddts)
 
     # plot datasets
     df = pd.DataFrame(
-        np.array([prot_plddts, scaled_prot_pred_dis]).transpose(),
+        np.array([prot_plddts, prot_pred_dis]).transpose(),
         columns=["pLDDT score", "scaled pred. disorder"],
     )
     st.line_chart(df)
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel("pLDDT")
+    ax.set_ylabel("pred. dis.")
+    # sns.despine(fig, left=True, right=True, bottom=True)
+    sns.scatterplot(x=prot_plddts, y=prot_pred_dis, palette="vlag", ax=ax)
+    st.pyplot(fig)
 
     # plot metrics
     """
@@ -86,13 +108,13 @@ if __name__ == "__main__":
     The following stats show the correlation between the plDDT and the SETH predictions for the selected protein
     """
 
+    obs_mat = np.stack([prot_plddts, prot_pred_dis], axis=0)
+
     def covariance():
-        obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=0)
         corr_mat = np.cov(obs_mat)
         st.metric("Covariance", f"{corr_mat[0, 1]:0.04f}")
 
     def pearson_corr():
-        obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=0)
         corr_mat = np.corrcoef(obs_mat)
         st.metric("Pearson correlation", f"{corr_mat[0, 1]:0.04f}")
 
