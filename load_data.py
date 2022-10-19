@@ -87,22 +87,23 @@ if __name__ == "__main__":
     """
 
     def covariance_corr():
-        obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=1)
-        return np.cov(obs_mat)
+        obs_mat = np.stack((prot_plddts, prot_pred_dis), axis=0)
+        st.table(obs_mat)
+        corr_mat = np.cov(obs_mat)
+
+        fig, ax = plt.subplots()
+        ax.set_xlabel("res idx")
+        ax.set_ylabel("res idx")
+        cax = ax.matshow(corr_mat)
+        fig.colorbar(cax)
+        st.pyplot(fig)
 
     def spearman_corr():
-        st.write(f"{prot_plddts.shape}, {prot_pred_dis.shape}")
         rho, pval = stats.spearmanr(prot_plddts, prot_pred_dis)
-        st.write(f"{rho.shape}")
-        st.metric("p-value", pval)
-        return rho
+        st.metric("p-value", f"{pval:0.04f}")
+        st.metric("rho", f"{rho:0.04f}")
 
     corr_metric = st.radio("Pick a correlation metric", ["covariance", "spearman"])
-    corr_mat = {"covariance": covariance_corr, "spearman": spearman_corr}[corr_metric]()
+    {"covariance": covariance_corr, "spearman": spearman_corr}[corr_metric]()
 
-    fig, ax = plt.subplots()
-    ax.set_xlabel("res idx")
-    ax.set_ylabel("res idx")
-    cax = ax.matshow(corr_mat)
-    fig.colorbar(cax)
-    st.pyplot(fig)
+    
