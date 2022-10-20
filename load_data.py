@@ -29,6 +29,42 @@ def load_seth_preds(path):
         return proteome_seth_preds
 
 
+@st.experimental_singleton
+def compute_proteome_wide_corr(plddts, seth_preds, shared_prot_ids):
+    # Count how many proteins do not have equal number of residues in plddts and seth_preds.
+    n_mismatch_res = 0
+    for prot_id in shared_prot_ids:
+        if len(plddts[prot_id]) != len(seth_preds[prot_id]):
+            n_mismatch_res = n_mismatch_res + 1
+
+    # Initialize stat vectors
+    n = len(shared_prot_ids) - n_mismatch_res
+    pearson = np.zeros(n)
+    spearman_rho = np.zeros(n)
+    spearman_pval = np.zeros(n)
+
+    i = 0
+    for prot_id in shared_prot_ids:
+        # Construct observation matrix for current protein ID
+        prot_plddts = np.array(plddts[prot_id])
+        prot_pred_dis = np.array(seth_preds[prot_id])
+        if prot_plddts.shape != prot_pred_dis.shape:
+            # TODO Fix! AF2 predictions are partitioned in fragments of 1400 residues, if the protein has more than 2700 residues. We have to recombine them first. Here is a workaround that disregards those for now. We also have to fix this in the picker. (See varadi2022_AlphaFoldProteinStructure)
+            continue
+        obs_mat = np.stack([prot_plddts, prot_pred_dis], axis=0)
+
+        # Compute stats
+        pearson[i] = np.corrcoef(obs_mat)[0, 1]
+        spearman_rho[i], spearman_pval[i] = stats.spearmanr(prot_plddts, prot_pred_dis)
+
+        i = i + 1
+
+    proteome_wide_stats = {"pearson": pearson,
+                           "spearman_rho": spearman_rho,
+                           "spearman_pval": spearman_pval}
+    return (pd.DataFrame(proteome_wide_stats), n_mismatch_res)
+
+
 if __name__ == "__main__":
     import numpy as np
     from scipy import stats
@@ -50,21 +86,13 @@ if __name__ == "__main__":
     plddts_ids = set(plddts.keys())
     seth_preds_ids = set(seth_preds.keys())
     shared_prot_ids = plddts_ids & seth_preds_ids
-    only_once = plddts_ids ^ seth_preds_ids
-    if only_once:
-        num_prot_ids = len(plddts_ids | seth_preds_ids)
-        print(f" {len(plddts_ids - seth_preds_ids)}/{num_prot_ids} UniProt identifiers appear only in pLDDT scores "
-              f"file, but not in the SETH predictions")
-        print(f" {len(seth_preds_ids - plddts_ids)}/{num_prot_ids} UniProt identifiers appear only in SETH "
-              f"predictions, but not in the pLDDT scores file")
-    else:
-        print("per-protein scores have have equal UniProt identifiers, nice!")
 
     with st.sidebar:
         """## Parameters"""
         prot_id = st.selectbox("Which protein would you like to look at?", shared_prot_ids)
         prot_plddts = np.array(plddts[prot_id])
         prot_pred_dis = np.array(seth_preds[prot_id])
+        proteome_wide = st.checkbox("Show proteome wide analysis")
 
     # Construct DataFrame for visualization with seaborn
     df = pd.DataFrame(
@@ -136,3 +164,65 @@ if __name__ == "__main__":
 
     with col_right:
         spearman_corr()
+
+    if proteome_wide:
+        proteome_wide_stats, n_mismatch_res = compute_proteome_wide_corr(plddts, seth_preds, shared_prot_ids)
+
+        """
+        ## Proteome wide distribution of correlation
+
+        The following stats show how the pairwise correlation between pLDDT and SETH predictions is distributed over the whole proteome.
+        """
+        col_left, col_right = st.columns(2)
+        with col_left:
+            """### Pearson"""
+            st.metric("mean Pearson correlation",
+                      f"{np.median(proteome_wide_stats['pearson']):0.04f}")
+            st.metric("std Pearson correlation",
+                      f"{np.std(proteome_wide_stats['pearson']):0.04f}")
+
+            fig, ax = plt.subplots()
+            ax.set_ylim(-1, 1)
+            sns.boxplot(data=proteome_wide_stats, y="pearson")
+            st.pyplot(fig)
+
+        with col_right:
+            """### Spearman"""
+            st.metric("mean Spearman correlation",
+                      f"{np.median(proteome_wide_stats['spearman_rho']):0.04f}")
+            st.metric("std Spearman correlation",
+                      f"{np.std(proteome_wide_stats['spearman_rho']):0.04f}")
+
+            fig, ax = plt.subplots()
+            ax.set_ylim(-1, 1)
+            sns.boxplot(data=proteome_wide_stats, y="spearman_rho")
+            st.pyplot(fig)
+
+            st.metric("mean Spearman p-value",
+                      f"{np.median(proteome_wide_stats['spearman_pval']):0.04f}")
+            st.metric("std Spearman p-value",
+                      f"{np.std(proteome_wide_stats['spearman_pval']):0.04f}")
+
+            fig, ax = plt.subplots()
+            ax.set_ylim(0, 1)
+            sns.boxplot(data=proteome_wide_stats, y="spearman_pval")
+            st.pyplot(fig)
+
+        """
+        ### Disregarded proteins
+        """
+        col_left, col_right = st.columns(2)
+        with col_left:
+            n_missing_seth = len(plddts_ids - seth_preds_ids)
+            st.metric("UniProt identifiers only appearing in \nplDDT scores", n_missing_seth)
+
+            n_missing_af2 = len(seth_preds_ids - plddts_ids)
+            st.metric("UniProt identifiers only appearing in \nSETH predictions", n_missing_af2)
+
+            st.metric("Number of proteins disregarded due to mismatch in number of residues:", n_mismatch_res)
+
+        with col_right:
+            num_prot_ids = len(plddts_ids | seth_preds_ids)
+            st.metric("Total number of UniProt identifiers", num_prot_ids)
+            sum_disregarded = num_prot_ids - n_missing_af2 - n_missing_seth - n_mismatch_res
+            st.metric("Number of used UniProt identifiers", sum_disregarded)
