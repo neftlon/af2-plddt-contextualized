@@ -36,7 +36,7 @@ if __name__ == "__main__":
     import pandas as pd
     import seaborn as sns
 
-    #sns.set_theme(style="ticks", palette="vlag")
+    sns.set_theme(context="paper", style="whitegrid", palette="deep")
 
     data_dir = "./data"
     plddts_filename = "UP000005640_9606_HUMAN_v3_plddts.json"
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         st.metric("std pLDDT", f"{np.std(prot_plddts):0.04f}")
         fig, ax = plt.subplots()
         ax.set_ylim(0, 100)
-        sns.boxplot(data=df, y="pLDDT score", palette="vlag")
+        sns.boxplot(data=df, y="pLDDT score")
         st.pyplot(fig)
 
     with col_pred_dis:
@@ -92,12 +92,12 @@ if __name__ == "__main__":
                   f"{np.std(prot_pred_dis):0.04f}")
         fig, ax = plt.subplots()
         ax.set_ylim(-20, 20)
-        sns.boxplot(data=df, y="pred. disorder", palette="vlag")
+        sns.boxplot(data=df, y="pred. disorder")
         st.pyplot(fig)
 
     """## Per-residue scores"""
     fig, ax = plt.subplots()
-    sns.lineplot(df, palette="vlag")
+    sns.lineplot(df)
     st.pyplot(fig)
 
 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     ## Scatterplot of pLDDT and predicted disorder
     """
     fig, ax = plt.subplots()
-    sns.scatterplot(df, x="pLDDT score", y="pred. disorder", palette="vlag")
+    sns.scatterplot(df, x="pLDDT score", y="pred. disorder")
     st.pyplot(fig)
 
     """
