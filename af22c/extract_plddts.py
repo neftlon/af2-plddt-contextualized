@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import tarfile
 import gzip
 import tempfile
@@ -10,6 +11,8 @@ import json
 from Bio.PDB.PDBParser import PDBParser
 from concurrent.futures import ProcessPoolExecutor
 
+
+UNIPROT_ID_EXTRACTOR = re.compile(".*(af|AF)-(?P<uniprotid>([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(-(f|F)[0-9]+)?)-model_v[0-9]+\.pdb\.gz")
 
 def get_structure_from_lines(pdb_parser, id, pdb_lines):
     """Emulate the `get_structure` method of the `PDBParser` to process an in-memory PDB file since the function only
@@ -66,8 +69,11 @@ def extract_plddts_from_pdb_gz(filename):
         struc = get_structure_from_lines(pdb_parser, filename, pdb_lines)
         pdb_plddts = get_plddts(struc)
 
-        # TODO(johannes): is this a correct way to extract the UniProt identifier?
-        uniprot_id = filename.split("-")[1]
+        matches = UNIPROT_ID_EXTRACTOR.match(filename)
+        if not matches:
+            raise Exception(f"was not able to extract UniProt ID from filename {filename}")
+
+        uniprot_id = matches.group("uniprotid")
         return uniprot_id, pdb_plddts
 
 
