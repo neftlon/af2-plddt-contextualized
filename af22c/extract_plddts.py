@@ -71,6 +71,19 @@ def extract_plddts_from_pdb_gz(filename):
         return uniprot_id, pdb_plddts
 
 
+def extract_structure_from_pdb_gz(filename):
+    """Extract the pLDDT scores from a compressed PDB (.pdb.gz) file."""
+    with open(filename, "rb") as pdb_gz:
+        # decompress PDB, obtain its structure information, and extract pLDDT scores
+        pdb_gz = pdb_gz.read()
+        pdb_bytes = gzip.decompress(pdb_gz)
+        pdb = pdb_bytes.decode()
+        pdb_lines = pdb.split("\n")
+        pdb_parser = PDBParser()
+        struc = get_structure_from_lines(pdb_parser, filename, pdb_lines)
+        return struc
+
+
 def extract_plddts_from_pdb_gzs(pdb_gzs_path):
     """Extract pLDDT scores from each compressed PDB file (.pdb.gz) inside a given directory `pdb_gzs_path` and
     return a `dict` mapping from UniProt identifier to a `list` of per-residue pLDDT scores (`float` from 0 to 100)."""
