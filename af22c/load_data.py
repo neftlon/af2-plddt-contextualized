@@ -33,9 +33,12 @@ def load_seth_preds(path):
 def compute_proteome_wide_corr(plddts, seth_preds, shared_prot_ids):
     # Count how many proteins do not have equal number of residues in plddts and seth_preds.
     n_mismatch_res = 0
+    mismatched_prots = []
     for prot_id in shared_prot_ids:
         if len(plddts[prot_id]) != len(seth_preds[prot_id]):
             n_mismatch_res = n_mismatch_res + 1
+            mismatched_prots.append((prot_id, len(plddts[prot_id]), len(seth_preds[prot_id])))
+    st.table(mismatched_prots)
 
     # Initialize stat vectors
     n = len(shared_prot_ids) - n_mismatch_res
@@ -75,7 +78,7 @@ if __name__ == "__main__":
     sns.set_theme(context="paper", style="whitegrid", palette="deep")
 
     data_dir = "./data"
-    plddts_filename = "UP000005640_9606_HUMAN_v3_plddts.json"
+    plddts_filename = "UP000005640_9606_HUMAN_v3_plddts_defrag.json"
     seth_preds_filename = "Human_SETH_preds.txt"
 
     print("loading per-protein scores")
