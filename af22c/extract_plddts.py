@@ -6,6 +6,7 @@ import tarfile
 import gzip
 import tempfile
 
+import numpy as np
 import tqdm
 import json
 from Bio.PDB.PDBParser import PDBParser
@@ -31,20 +32,13 @@ def get_plddts(struc):
     for model in struc:
         for chain in model:
             for res in chain:
-                # TODO(johannes): In [1], always the first atom in `res` is picked. However, shouldn't we look 
-                # for the C-alpha atom instead of blindly picking the first one? According to [2], pLDDT
-                # "estimates whether the predicted residue has similar distances to neighboring C-alpha atoms".
-                #
-                # [1] https://github.com/Rostlab/TMvis/blob/afc65d099012ba6e1aed928f76e8ea033210f8e3/TMvis/main.py#L156-L159
-                # [2] https://www.rbvi.ucsf.edu/chimerax/data/pae-apr2022/pae.html#:~:text=Per%2Dresidue%20confidence%20scores%20(pLDDT,below%2050%20indicating%20low%20confidence.
-                atom = res["CA"]
-
                 # NOTE: according to AlphaFold 2 database's FAQ [1], the pLDDT score is stored inside the
-                # b-factor field of the PDB file. 
-                # 
-                # [1] https://alphafold.ebi.ac.uk/faq#faq-5 
-                plddt = float(atom.get_bfactor())
-                scores.append(plddt)
+                # b-factor field of the PDB file.
+                #
+                # [1] https://alphafold.ebi.ac.uk/faq#faq-5
+                plddts = [float(atom.get_bfactor()) for atom in res]
+                mean_plddt = round(sum(plddts) / len(plddts), 2)
+                scores.append(mean_plddt)
     return scores
 
 
