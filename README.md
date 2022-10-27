@@ -1,6 +1,8 @@
 # AlphaFold2 pLDDT scores contextualized
 
-TODO
+This project aims at understanding and quantifying the relationship betweeen pLDDTs, MSAs and embedding-based disorder
+predictions.
+
 
 ## Usage
 
@@ -29,7 +31,7 @@ and precomputed disorder predictions from SETH [[3]](#3). The `download_human.sh
 the `./data` subdirectory. (If not yet present, the directory is created for you.)
 
 ```shell
-./download_human.sh
+./af22c/download_human.sh
 ```
 
 Before downloading, the script checks whether the data has changed on the server. To force a download, delete the
@@ -42,20 +44,31 @@ files predicted by AlphaFold 2. The `extract_plddts.py` utility extracts and sto
 inside the `./data` subdirectory.
 
 ```shell
-./extract_plddts.py
+./af22c/extract_plddts.py
 ```
 
 Note, that the program extracts the `.tar` file downloaded from the AlphaFold 2 database inside a temporary directory.
 Since every `.pdb.gz` file from the archive is copied, this temporarily requires as much addition disk memory as the
 initial download. This happens to ease the use of multiple processes using a Python `ProcessPoolExecutor`.
 
-### 3. Run some visualization
+### 3. Filter pLDDTs for fragmented proteins 
+
+If proteins have more than 2700 residues, they are predicted in [fragments by AF2](https://alphafold.ebi.ac.uk/faq).
+This also means, the pLDDTs are stored in multiple files, one for each fragment. The `filter_protfrags.py` utility 
+filters the pLDDTs to only contain non-fragmented proteins and stores the filtered pLDDTs in a `..._plddts_fltrd.json`
+file inside the `./data` subdirectory.
+
+```shell
+./af22c/filter_protfrags.py
+```
+
+### 4. Run some visualization
 
 The visualization not only loads the SETH predictions but also the extracted pLDDT scores. A small
 [streamlit](https://streamlit.io/) app can be used to visualize both datasets.
 
 ```shell
-python3 -m streamlit run load_data.py
+python3 -m streamlit run af22c/load_data.py
 ```
 
 ## References
