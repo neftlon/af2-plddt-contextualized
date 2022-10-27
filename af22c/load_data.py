@@ -28,8 +28,7 @@ def load_seth_preds(path):
         return proteome_seth_preds
 
 
-@st.experimental_singleton
-def compute_proteome_wide_corr(plddts, seth_preds, shared_prot_ids):
+def compute_proteome_wide_corr(path, plddts, seth_preds, shared_prot_ids):
     # Count how many proteins do not have equal number of residues in plddts and seth_preds.
     n_mismatch_res = 0
     mismatched_prots = []
@@ -51,7 +50,6 @@ def compute_proteome_wide_corr(plddts, seth_preds, shared_prot_ids):
         prot_plddts = np.array(plddts[prot_id])
         prot_pred_dis = np.array(seth_preds[prot_id])
         if prot_plddts.shape != prot_pred_dis.shape:
-            # TODO Fix! AF2 predictions are partitioned in fragments of 1400 residues, if the protein has more than 2700 residues. We have to recombine them first. Here is a workaround that disregards those for now. We also have to fix this in the picker. (See varadi2022_AlphaFoldProteinStructure)
             continue
         obs_mat = np.stack([prot_plddts, prot_pred_dis], axis=0)
 
@@ -61,10 +59,21 @@ def compute_proteome_wide_corr(plddts, seth_preds, shared_prot_ids):
 
         i = i + 1
 
-    proteome_wide_stats = {"pearson": pearson,
-                           "spearman_rho": spearman_rho,
-                           "spearman_pval": spearman_pval}
-    return (pd.DataFrame(proteome_wide_stats), n_mismatch_res)
+    proteome_wide_stats_dict = {"pearson": pearson.tolist(),
+                                "spearman_rho": spearman_rho.tolist(),
+                                "spearman_pval": spearman_pval.tolist(),
+                                "n_mismatch_res": n_mismatch_res}
+    with open(path, "w") as outfile:
+        json.dump(proteome_wide_stats_dict, outfile)
+    return proteome_wide_stats_dict
+
+def load_proteome_wide_corr(path, plddts, seth_preds, shared_prot_ids):
+    try:
+        with open(path) as infile:
+            proteome_wide_stats_dict = json.load(infile)
+            return proteome_wide_stats_dict
+    except:
+        return compute_proteome_wide_corr(path, plddts, seth_preds, shared_prot_ids)
 
 
 if __name__ == "__main__":
@@ -76,8 +85,11 @@ if __name__ == "__main__":
 
     sns.set_theme(context="paper", style="whitegrid", palette="deep")
 
-    data_dir = "./data"
-    plddts_filename = "UP000005640_9606_HUMAN_v3_plddts_fltrd.json"
+    data_dir = './data'
+    proteome_name = "UP000005640_9606_HUMAN_v3"
+    proteome_wide_stats_ending = '_proteome_stats.json'
+    plddts_fltrd_ending = "_plddts_fltrd.json"
+    plddts_filename = proteome_name + plddts_fltrd_ending
     seth_preds_filename = "Human_SETH_preds.txt"
 
     print("loading per-protein scores")
@@ -176,7 +188,10 @@ if __name__ == "__main__":
         spearman_corr()
 
     if proteome_wide:
-        proteome_wide_stats, n_mismatch_res = compute_proteome_wide_corr(plddts, seth_preds, shared_prot_ids)
+        proteome_stats_path = os.path.join(data_dir, proteome_name + proteome_wide_stats_ending)
+        proteome_wide_stats_dict = load_proteome_wide_corr(proteome_stats_path, plddts, seth_preds, shared_prot_ids)
+        n_mismatch_res = proteome_wide_stats_dict.pop('n_mismatch_res')
+        proteome_wide_stats = pd.DataFrame(proteome_wide_stats_dict)
 
         """
         ## Proteome wide distribution of correlation
