@@ -77,7 +77,7 @@ if __name__ == "__main__":
     sns.set_theme(context="paper", style="whitegrid", palette="deep")
 
     data_dir = "./data"
-    plddts_filename = "UP000005640_9606_HUMAN_v3_plddts_defrag.json"
+    plddts_filename = "UP000005640_9606_HUMAN_v3_plddts_fltrd.json"
     seth_preds_filename = "Human_SETH_preds.txt"
 
     print("loading per-protein scores")
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         col_left, col_right = st.columns(2)
         with col_left:
             n_missing_seth = len(plddts_ids - seth_preds_ids)
-            st.metric("UniProt identifiers only appearing in \nplDDT scores", n_missing_seth)
+            st.metric("UniProt identifiers only appearing in \npLDDT scores", n_missing_seth)
 
             n_missing_af2 = len(seth_preds_ids - plddts_ids)
             st.metric("UniProt identifiers only appearing in \nSETH predictions", n_missing_af2)

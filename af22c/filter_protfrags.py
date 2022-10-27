@@ -29,7 +29,7 @@ if __name__ == "__main__":
         "-o",
         "--out",
         type=argparse.FileType("w"),
-        default="data/UP000005640_9606_HUMAN_v3_plddts_defrag.json",
+        default="data/UP000005640_9606_HUMAN_v3_plddts_fltrd.json",
         help="location of output .json file; the file containing proteins without AlphaFold's `-Fn` extension",
     )
     args = parser.parse_args()
