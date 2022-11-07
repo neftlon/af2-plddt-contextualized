@@ -4,11 +4,13 @@ import io
 import json
 
 from Bio import SeqIO
+from Bio.Seq import Seq
 from collections import namedtuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from tqdm import tqdm
 import tarfile
 import logging
-import tqdm
+import string
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "target_id",
@@ -23,23 +25,33 @@ MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "tlen",
 ])
 
+
+# Generate translation table for lowercase removal
+LOWERCASE_DEL_TABLE = str.maketrans('', '', string.ascii_lowercase)
+
+
 @dataclass
 class MsaMatch:
     attribs: MsaMatchAttribs
-    gapped_seq: str
+    orig_seq: str
+    aligned_seq: str = field(init=False)
+
+    def __post_init__(self):
+        # Convert to String and back in order to use string translation method instead of 
+        # Biopython translation
+        self.aligned_seq = Seq(str(self.orig_seq).translate(LOWERCASE_DEL_TABLE))
 
     def __getitem__(self, item: int):
         """Get a residue by index. (Including gaps from MSA.)"""
-        return self.gapped_seq[item]
+        return self.aligned_seq[item]
 
 
 def extract_query_and_matches(a3m: io.TextIOBase) -> tuple[str, str, list[MsaMatch]]:
     # TODO(johannes): do we really want _this_ parameter? or should we accept filename strings as well?
-
     seqs = list(SeqIO.parse(a3m, "fasta"))
     query = seqs[0]  # first sequence is the query sequence
     matches = []
-    for idx, seq in enumerate(seqs[1:]):
+    for idx, seq in tqdm(enumerate(seqs[1:])):
         raw_attribs = seq.description.split("\t")
         # TODO(johannes): Sometimes (for instance in Q9A7K5.a3m) the MSA file contains the same (presumable) query
         # sequence at least twice. What purpose does this serve? The code below currently skips these duplications, but
@@ -80,13 +92,14 @@ def get_depth(query, matches: list[MsaMatch], theta_id=0.2) -> int:
     learning-based inter-residue contact prediction, Bioinformatics, Volume 36, Issue 4, 15 February 2020,
     Pages 1091–1098, https://doi.org/10.1093/bioinformatics/btz679
     """
+
     num_matches = len(matches)
     n_eff = 0
-    for s in range(num_matches):
+    for s in tqdm(range(num_matches)):
         inv_pi_s = 0.0
         for t in range(num_matches):
-            s_seq = matches[s].gapped_seq[:len(query)]
-            t_seq = matches[t].gapped_seq[:len(query)]
+            s_seq = matches[s].aligned_seq
+            t_seq = matches[t].aligned_seq
             dist = normalized_hamming_distance(s_seq, t_seq)
             if dist < theta_id:
                 inv_pi_s += 1.0
@@ -103,7 +116,7 @@ def proteome_wide_analysis():
         logging.debug(f"found around {len(names)} .a3m files containing MSAs")
         depths = {}
         # TODO: this loop looks like a bottleneck -- make it parallel?
-        for name in tqdm.tqdm(names):
+        for name in tqdm(names):
             if name.endswith(".a3m"):
                 # process .a3m member
                 with tar.extractfile(name) as raw_a3m:
