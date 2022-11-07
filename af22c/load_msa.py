@@ -32,6 +32,9 @@ LOWERCASE_DEL_TABLE = str.maketrans('', '', string.ascii_lowercase)
 
 @dataclass
 class MsaMatch:
+    """
+    MsaMatch object containing the parsed header field in attribs, the original sequence in orig_seq    and the sequence without insertions.
+    """
     attribs: MsaMatchAttribs
     orig_seq: str
     aligned_seq: str = field(init=False)
@@ -44,6 +47,12 @@ class MsaMatch:
     def __getitem__(self, item: int):
         """Get a residue by index. (Including gaps from MSA.)"""
         return self.aligned_seq[item]
+
+    def __str__(self):
+        return self.aligned_seq
+
+    def __len__(self):
+        return len(aligned_seq)
 
 
 def extract_query_and_matches(a3m: io.TextIOBase) -> tuple[str, str, list[MsaMatch]]:
@@ -81,18 +90,7 @@ def normalized_hamming_distance(s1, s2) -> float:
     return hamming_distance(s1, s2) / len(s1)
 
 
-def get_depth(query, matches: list[MsaMatch], theta_id=0.2) -> int:
-    """
-    Get the MSA for each column.
-
-    Depth is calculated based on the N_eff score introduced in [1]. This score was also used in AlphaFold 2 for
-    assessing MSA quality.
-
-    [1] Tianqi Wu, Jie Hou, Badri Adhikari, Jianlin Cheng, Analysis of several key factors influencing deep
-    learning-based inter-residue contact prediction, Bioinformatics, Volume 36, Issue 4, 15 February 2020,
-    Pages 1091–1098, https://doi.org/10.1093/bioinformatics/btz679
-    """
-
+def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
     num_matches = len(matches)
     n_eff = 0
     for s in tqdm(range(num_matches)):
@@ -107,6 +105,27 @@ def get_depth(query, matches: list[MsaMatch], theta_id=0.2) -> int:
         n_eff += pi_s
     return n_eff
 
+
+def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
+    msa = [query] + matches
+    pairwise_seq_id = np.zeros((len(msa), len(msa)))
+    for i, m in enumerate(msa):
+        for j, n in enumerate(msa):
+            # TODO this is a symmetric matrix -> optimization possible
+            pairwise_seq_id[i, j] = normalized_hamming_distance(m, n)
+
+    n_eff_weights = np.zeros(len(msa))
+    for i in range(len(msa)):
+        n_eff_weights[i] = sum(map(int, pairwise_seq_id[i] >= 0.8))
+    inv_n_eff_weights = 1 / n_eff_weights
+
+
+    n_non_gaps = np.zeros(len(query)) 
+    for i, m in enumerate(msa):
+        for c in range(len(query)):
+            n_non_gaps[c] += int(m[c] != '-') * inv_n_eff_weights[i]
+    return n_non_gaps
+    
 
 def proteome_wide_analysis():
     proteome_msas_filename = "data/UP000001816_190650.tar.gz"
