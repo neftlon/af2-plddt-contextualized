@@ -11,6 +11,7 @@ from tqdm import tqdm
 import tarfile
 import logging
 import string
+import numpy as np
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "target_id",
@@ -52,7 +53,7 @@ class MsaMatch:
         return self.aligned_seq
 
     def __len__(self):
-        return len(aligned_seq)
+        return len(self.aligned_seq)
 
 
 def extract_query_and_matches(a3m: io.TextIOBase) -> tuple[str, str, list[MsaMatch]]:
