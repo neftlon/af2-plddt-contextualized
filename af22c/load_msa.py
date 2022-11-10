@@ -125,15 +125,15 @@ def seq_identity_vectorized(msa):
 def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     msa = [query] + matches
     pair_seq_id = seq_identity_vectorized(msa)
+
     n_eff_weights = np.zeros(len(msa))
     for i in range(len(msa)):
         n_eff_weights[i] = sum(map(int, pair_seq_id[i] >= 0.8))
     inv_n_eff_weights = 1 / n_eff_weights
 
-
-    n_non_gaps = np.zeros(len(query)) 
-    for i, m in enumerate(msa):
-        for c in range(len(query)):
+    n_non_gaps = np.zeros(len(query))
+    for c in range(len(query)):
+        for i, m in enumerate(msa):
             n_non_gaps[c] += int(m[c] != '-') * inv_n_eff_weights[i]
     return n_non_gaps
     
