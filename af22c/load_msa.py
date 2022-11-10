@@ -61,7 +61,7 @@ def extract_query_and_matches(a3m: io.TextIOBase) -> tuple[str, str, list[MsaMat
     seqs = list(SeqIO.parse(a3m, "fasta"))
     query = seqs[0]  # first sequence is the query sequence
     matches = []
-    for idx, seq in tqdm(enumerate(seqs[1:])):
+    for idx, seq in tqdm(enumerate(seqs[1:]), desc='Loading MSAs'):
         raw_attribs = seq.description.split("\t")
         # TODO(johannes): Sometimes (for instance in Q9A7K5.a3m) the MSA file contains the same (presumable) query
         # sequence at least twice. What purpose does this serve? The code below currently skips these duplications, but
@@ -94,7 +94,7 @@ def normalized_hamming_distance(s1, s2) -> float:
 def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
     num_matches = len(matches)
     n_eff = 0
-    for s in tqdm(range(num_matches)):
+    for s in tqdm(range(num_matches), desc='Compute Neffs'):
         inv_pi_s = 0.0
         for t in range(num_matches):
             s_seq = matches[s].aligned_seq
@@ -110,7 +110,7 @@ def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
 def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     msa = [query] + matches
     pairwise_seq_id = np.zeros((len(msa), len(msa)))
-    for i, m in enumerate(msa):
+    for i, m in tqdm(enumerate(msa), desc='Compute seq_ident 1'):
         for j, n in enumerate(msa):
             # TODO this is a symmetric matrix -> optimization possible
             pairwise_seq_id[i, j] = normalized_hamming_distance(m, n)
