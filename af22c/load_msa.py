@@ -41,8 +41,8 @@ class MsaMatch:
     aligned_seq: str = field(init=False)
 
     def __post_init__(self):
-        # Convert to String and back in order to use string translation method instead of 
-        # Biopython translation
+        # Convert to String and back in order to use string translation method instead of
+        # Biopython translation. This is still way faster than filtering and joining.
         self.aligned_seq = Seq(str(self.orig_seq).translate(LOWERCASE_DEL_TABLE))
 
     def __getitem__(self, item: int):
