@@ -61,7 +61,7 @@ def extract_query_and_matches(a3m: io.TextIOBase) -> tuple[str, str, list[MsaMat
     seqs = list(SeqIO.parse(a3m, "fasta"))
     query = seqs[0]  # first sequence is the query sequence
     matches = []
-    for idx, seq in tqdm(enumerate(seqs[1:]), desc='Loading MSAs'):
+    for idx, seq in tqdm(enumerate(seqs[1:]), desc='Loading MSAs', total=len(seqs)-1):
         raw_attribs = seq.description.split("\t")
         # TODO(johannes): Sometimes (for instance in Q9A7K5.a3m) the MSA file contains the same (presumable) query
         # sequence at least twice. What purpose does this serve? The code below currently skips these duplications, but
@@ -113,7 +113,7 @@ def seq_identity_vectorized(msa):
     pair_seq_ident = np.empty((len(msa), len(msa)))
     pair_seq_ident[:] = np.nan
 
-    for i, s1 in tqdm(enumerate(msa_vec), desc='Compute seq_ident'):
+    for i, s1 in tqdm(enumerate(msa_vec), desc='Compute seq_ident', total=len(msa)):
         for j, s2 in enumerate(msa_vec[:i-1]):
             # TODO (@Simon) only run j till j==i and set
             # upper triangle matrix to same value
