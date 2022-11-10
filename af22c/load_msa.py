@@ -125,11 +125,6 @@ def seq_identity_vectorized(msa):
 def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     msa = [query] + matches
     pair_seq_id = seq_identity_vectorized(msa)
-    pairwise_seq_id = np.zeros((len(msa), len(msa)))
-    for i, m in enumerate(msa):
-        for j, n in enumerate(msa):
-            # TODO this is a symmetric matrix -> optimization possible
-            pairwise_seq_id[i, j] = 1 - normalized_hamming_distance(m, n)
 
     n_eff_weights = np.zeros(len(msa))
     for i in range(len(msa)):
