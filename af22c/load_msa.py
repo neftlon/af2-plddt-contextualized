@@ -84,7 +84,7 @@ def hamming_distance(s1, s2) -> int:
     Taken from: https://en.wikipedia.org/wiki/Hamming_distance"""
     if len(s1) != len(s2):
         raise ValueError("Undefined for sequences of unequal length.")
-    return sum(el1 != el2 for el1, el2 in zip(s1, s2))
+    return sum(np.array(list(s1)) != np.array(list(s2)))
 
 
 def normalized_hamming_distance(s1, s2) -> float:
@@ -106,18 +106,28 @@ def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
         n_eff += pi_s
     return n_eff
 
+def seq_identity_vectorized(msa):
+    msa_vec = np.array([list(seq) for seq in msa])
+
+    # Initialize with NaN in order to avoid silent errors
+    pair_seq_ident = np.empty((len(msa), len(msa)))
+    pair_seq_ident[:] = np.nan
+
+    for i, s1 in tqdm(enumerate(msa_vec), desc='Compute seq_ident'):
+        for j, s2 in enumerate(msa_vec[:i-1]):
+            # TODO (@Simon) only run j till j==i and set
+            # upper triangle matrix to same value
+            # TODO Try to sum after loop, i.e. trade memory for speed
+            pair_seq_ident[i, j] = np.sum(s1 == s2)
+
+    return pair_seq_ident / len(msa[0])
 
 def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     msa = [query] + matches
-    pairwise_seq_id = np.zeros((len(msa), len(msa)))
-    for i, m in tqdm(enumerate(msa), desc='Compute seq_ident 1'):
-        for j, n in enumerate(msa):
-            # TODO this is a symmetric matrix -> optimization possible
-            pairwise_seq_id[i, j] = normalized_hamming_distance(m, n)
-
+    pair_seq_id = seq_identity_vectorized(msa)
     n_eff_weights = np.zeros(len(msa))
     for i in range(len(msa)):
-        n_eff_weights[i] = sum(map(int, pairwise_seq_id[i] >= 0.8))
+        n_eff_weights[i] = sum(map(int, pair_seq_id[i] >= 0.8))
     inv_n_eff_weights = 1 / n_eff_weights
 
 
