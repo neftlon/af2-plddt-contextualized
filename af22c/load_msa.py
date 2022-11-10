@@ -114,7 +114,7 @@ def seq_identity_vectorized(msa):
     pair_seq_ident[:] = np.nan
 
     for i, s1 in tqdm(enumerate(msa_vec), desc='Compute seq_ident', total=len(msa)):
-        for j, s2 in enumerate(msa_vec[:i-1]):
+        for j, s2 in enumerate(msa_vec):
             # TODO (@Simon) only run j till j==i and set
             # upper triangle matrix to same value
             # TODO Try to sum after loop, i.e. trade memory for speed
