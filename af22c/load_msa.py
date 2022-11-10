@@ -11,6 +11,7 @@ from tqdm import tqdm
 import tarfile
 import logging
 import string
+import numpy as np
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "target_id",
@@ -52,7 +53,7 @@ class MsaMatch:
         return self.aligned_seq
 
     def __len__(self):
-        return len(aligned_seq)
+        return len(self.aligned_seq)
 
 
 def extract_query_and_matches(a3m: io.TextIOBase) -> tuple[str, str, list[MsaMatch]]:
@@ -112,13 +113,12 @@ def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     for i, m in enumerate(msa):
         for j, n in enumerate(msa):
             # TODO this is a symmetric matrix -> optimization possible
-            pairwise_seq_id[i, j] = normalized_hamming_distance(m, n)
+            pairwise_seq_id[i, j] = 1 - normalized_hamming_distance(m, n)
 
     n_eff_weights = np.zeros(len(msa))
     for i in range(len(msa)):
-        n_eff_weights[i] = sum(map(int, pairwise_seq_id[i] >= 0.8))
-    inv_n_eff_weights = 1 / n_eff_weights
-
+        n_eff_weights[i] = sum(map(int, pairwise_seq_id[i] >= seq_id))
+    inv_n_eff_weights = 1 / (1 + n_eff_weights)
 
     n_non_gaps = np.zeros(len(query)) 
     for i, m in enumerate(msa):
@@ -152,7 +152,7 @@ def proteome_wide_analysis():
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     #proteome_wide_analysis()
-    with open("data/Q9A7K5.a3m") as a3m:
+    with open("data/Q9AAS4_20.a3m") as a3m:
         query_id, query_seq, matches = extract_query_and_matches(a3m)
         depths = get_depth(query_seq, matches)
         print(depths)
