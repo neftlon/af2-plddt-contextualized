@@ -14,6 +14,8 @@ import logging
 import string
 import numpy as np
 from functools import lru_cache
+from itertools import repeat
+from concurrent.futures import ProcessPoolExecutor
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "target_id",
@@ -134,17 +136,41 @@ def seq_identity_vectorized(msa):
 
     return pair_seq_ident / len(msa[0])
 
+
+def compute_pairwise_seq_ident(combined_args):
+    i, msa_vec = combined_args
+    s1 = msa_vec[i]
+    result = [np.sum(s1 == s2) for s2 in msa_vec]
+    return result
+    #for j, s2 in enumerate(msa_vec):
+        # TODO (@Simon) only run j till j==i and set
+        # upper triangle matrix to same value
+        # TODO Try to sum after loop, i.e. trade memory for speed
+    #    row[j] = np.sum(s1 == s2)
+
+
+def seq_identity_parallel(msa):
+    msa_vec = np.array([list(seq) for seq in msa])
+    with ProcessPoolExecutor() as ppe:
+        pairwise_input = zip(range(len(msa_vec)), repeat(msa_vec))
+        pair_seq_ident = list(tqdm(
+            ppe.map(compute_pairwise_seq_ident, pairwise_input),
+            desc='Compute seq_ident',
+            total=len(msa_vec),
+        ))
+        return np.array(pair_seq_ident) / len(msa[0])
+
 def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     msa = [query] + matches
-    pair_seq_id = seq_identity_vectorized(msa)
+    pair_seq_id = seq_identity_parallel(msa)
 
     n_eff_weights = np.zeros(len(msa))
-    for i in range(len(msa)):
+    for i in tqdm(range(len(msa)), desc="calculating Neff weights", total=len(msa)):
         n_eff_weights[i] = sum(map(int, pair_seq_id[i] >= seq_id))
     inv_n_eff_weights = 1 / n_eff_weights
 
     n_non_gaps = np.zeros(len(query))
-    for c in range(len(query)):
+    for c in tqdm(range(len(query)), desc="counting gaps", total=len(query)):
         for i, m in enumerate(msa):
             n_non_gaps[c] += int(m[c] != '-') * inv_n_eff_weights[i]
     return n_non_gaps
