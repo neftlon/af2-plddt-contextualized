@@ -112,7 +112,6 @@ def seq_identity_vectorized(msa):
     n_ident_res = np.zeros((len(msa), len(msa)))
     for i, s in tqdm(enumerate(msa_vec), desc='Compute n_ident_res (s/it decreasing)', total=len(msa)):
         # For each sequence, count the number of identical residues in all following sequences
-        # TODO (@Simon) Try to sum after loop, i.e. trade memory for speed
         n_ident_res[i, i:] = np.sum(msa_vec[i:] == s, axis=1)
 
     # Fill the lower left triangle matrix with the values from the upper right triangle
