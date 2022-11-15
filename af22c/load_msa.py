@@ -11,6 +11,7 @@ from tqdm import tqdm
 import tarfile
 import logging
 import string
+import numpy as np
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "target_id",
@@ -40,8 +41,8 @@ class MsaMatch:
     aligned_seq: str = field(init=False)
 
     def __post_init__(self):
-        # Convert to String and back in order to use string translation method instead of 
-        # Biopython translation
+        # Convert to String and back in order to use string translation method instead of
+        # Biopython translation. This is still way faster than filtering and joining.
         self.aligned_seq = Seq(str(self.orig_seq).translate(LOWERCASE_DEL_TABLE))
 
     def __getitem__(self, item: int):
@@ -52,7 +53,7 @@ class MsaMatch:
         return self.aligned_seq
 
     def __len__(self):
-        return len(aligned_seq)
+        return len(self.aligned_seq)
 
 
 def extract_query_and_matches(a3m: io.TextIOBase) -> tuple[str, str, list[MsaMatch]]:
@@ -60,7 +61,7 @@ def extract_query_and_matches(a3m: io.TextIOBase) -> tuple[str, str, list[MsaMat
     seqs = list(SeqIO.parse(a3m, "fasta"))
     query = seqs[0]  # first sequence is the query sequence
     matches = []
-    for idx, seq in tqdm(enumerate(seqs[1:])):
+    for idx, seq in tqdm(enumerate(seqs[1:]), desc='Loading MSAs', total=len(seqs)-1):
         raw_attribs = seq.description.split("\t")
         # TODO(johannes): Sometimes (for instance in Q9A7K5.a3m) the MSA file contains the same (presumable) query
         # sequence at least twice. What purpose does this serve? The code below currently skips these duplications, but
@@ -83,7 +84,7 @@ def hamming_distance(s1, s2) -> int:
     Taken from: https://en.wikipedia.org/wiki/Hamming_distance"""
     if len(s1) != len(s2):
         raise ValueError("Undefined for sequences of unequal length.")
-    return sum(el1 != el2 for el1, el2 in zip(s1, s2))
+    return sum(np.array(list(s1)) != np.array(list(s2)))
 
 
 def normalized_hamming_distance(s1, s2) -> float:
@@ -93,7 +94,7 @@ def normalized_hamming_distance(s1, s2) -> float:
 def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
     num_matches = len(matches)
     n_eff = 0
-    for s in tqdm(range(num_matches)):
+    for s in tqdm(range(num_matches), desc='Compute Neffs'):
         inv_pi_s = 0.0
         for t in range(num_matches):
             s_seq = matches[s].aligned_seq
@@ -105,24 +106,34 @@ def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
         n_eff += pi_s
     return n_eff
 
+def seq_identity_vectorized(msa):
+    msa_vec = np.array([list(seq) for seq in msa])
+
+    # Initialize with NaN in order to avoid silent errors
+    pair_seq_ident = np.empty((len(msa), len(msa)))
+    pair_seq_ident[:] = np.nan
+
+    for i, s1 in tqdm(enumerate(msa_vec), desc='Compute seq_ident', total=len(msa)):
+        for j, s2 in enumerate(msa_vec):
+            # TODO (@Simon) only run j till j==i and set
+            # upper triangle matrix to same value
+            # TODO Try to sum after loop, i.e. trade memory for speed
+            pair_seq_ident[i, j] = np.sum(s1 == s2)
+
+    return pair_seq_ident / len(msa[0])
 
 def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     msa = [query] + matches
-    pairwise_seq_id = np.zeros((len(msa), len(msa)))
-    for i, m in enumerate(msa):
-        for j, n in enumerate(msa):
-            # TODO this is a symmetric matrix -> optimization possible
-            pairwise_seq_id[i, j] = normalized_hamming_distance(m, n)
+    pair_seq_id = seq_identity_vectorized(msa)
 
     n_eff_weights = np.zeros(len(msa))
     for i in range(len(msa)):
-        n_eff_weights[i] = sum(map(int, pairwise_seq_id[i] >= 0.8))
+        n_eff_weights[i] = sum(map(int, pair_seq_id[i] >= seq_id))
     inv_n_eff_weights = 1 / n_eff_weights
 
-
-    n_non_gaps = np.zeros(len(query)) 
-    for i, m in enumerate(msa):
-        for c in range(len(query)):
+    n_non_gaps = np.zeros(len(query))
+    for c in range(len(query)):
+        for i, m in enumerate(msa):
             n_non_gaps[c] += int(m[c] != '-') * inv_n_eff_weights[i]
     return n_non_gaps
     
