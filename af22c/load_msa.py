@@ -14,7 +14,7 @@ import logging
 import string
 import numpy as np
 from functools import lru_cache
-from itertools import repeat
+from itertools import repeat, chain
 from concurrent.futures import ProcessPoolExecutor
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
@@ -121,40 +121,97 @@ def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
     return n_eff
 
 def seq_identity_vectorized(msa):
+    # Prepare msa for vector operations.
     msa_vec = np.array([list(seq) for seq in msa])
 
+    # Compute the number of identical residues for all pairs once
+    # and build an upper right triangle matrix from it.
     n_ident_res = np.zeros((len(msa), len(msa)))
     for i, s in tqdm(enumerate(msa_vec), desc='Compute n_ident_res (s/it decreasing)', total=len(msa)):
-        # For each sequence, count the number of identical residues in all following sequences
+        # For each sequence, count the number of identical residues in all following sequences.
         n_ident_res[i, i:] = np.sum(msa_vec[i:] == s, axis=1)
 
-    # Fill the lower left triangle matrix with the values from the upper right triangle
+    # Fill the lower left triangle matrix with the values from the upper right triangle.
     n_ident_res += n_ident_res.T - np.diag(n_ident_res.diagonal())
 
     return n_ident_res / len(msa[0])
+
 
 def compute_pairwise_seq_ident(combined_args):
     i, msa_vec = combined_args
     s1 = msa_vec[i]
     result = [np.sum(s1 == s2) for s2 in msa_vec]
     return result
-    #for j, s2 in enumerate(msa_vec):
-        # TODO (@Simon) only run j till j==i and set
-        # upper triangle matrix to same value
-        # TODO Try to sum after loop, i.e. trade memory for speed
-    #    row[j] = np.sum(s1 == s2)
+
+
+def one_against_many_res_id(combined_args):
+    i, msa_vec = combined_args
+    return np.sum(msa_vec[i:] == msa_vec[i], axis=1)
+
+
+def batched_one_against_many_res_id(combined_args):
+    """
+    Compute the number of identical residues between a batch of input sequences and a complete MSA.
+    """
+    idx, msa_vec = combined_args
+    # TODO Progress indication is a workaround.
+    #  Indicating progress like this leads to one progress bar flickering between
+    #  different processes
+    return [np.sum(msa_vec[i:] == msa_vec[i], axis=1) for i in tqdm(idx)]
+
+
+def flatten_list_of_lists(l):
+    """
+    Faster than list comprehension solutions.
+    """
+    return list(chain.from_iterable(l))
+
+
+def sort_by_idx(idx, l):
+    """
+    Sort a list by an index given as list of indices.
+    """
+    return [x for _, x in sorted(zip(idx, l))]
 
 
 def seq_identity_parallel(msa):
+    # Prepare msa for vector operations.
     msa_vec = np.array([list(seq) for seq in msa])
-    with ProcessPoolExecutor() as ppe:
-        pairwise_input = zip(range(len(msa_vec)), repeat(msa_vec))
-        pair_seq_ident = list(tqdm(
-            ppe.map(compute_pairwise_seq_ident, pairwise_input),
-            desc='Compute seq_ident',
-            total=len(msa_vec),
-        ))
-        return np.array(pair_seq_ident) / len(msa[0])
+
+    # Distribute the sequence indices over multiple batches.
+    # TODO use default number of workers (i.e. number of cpus) and read it out
+    #  for splitting the MSA in batches.
+    n_batches = 4
+    batch_idxs = [range(i, len(msa_vec), n_batches) for i in range(n_batches)]
+
+    with ProcessPoolExecutor(max_workers=n_batches) as ppe:
+        pairwise_input = zip(batch_idxs, repeat(msa_vec))
+        # TODO add some kind of progress indicator for the batched
+        #  multiprocessing, maybe report from called function at specific
+        #  intervals and accumulate progress here?
+        #  Beware, with the current batching early iterations are slower than later ones.
+        #  This could be changed by shuffling and then reordering.
+        batched_n_ident_res_list = list(
+            ppe.map(batched_one_against_many_res_id, pairwise_input)
+        )
+
+        n_ident_res_list_ur = flatten_list_of_lists(batched_n_ident_res_list)
+        idx = flatten_list_of_lists(batch_idxs)
+
+        n_ident_res_list_ur = sort_by_idx(idx, n_ident_res_list_ur)
+
+        # Build an upper triangle matrix from the computed list of lists, where each list
+        # represents one row of the upper right triangle matrix.
+        n_ident_res_vec = np.zeros((len(msa), len(msa)))
+        n_ident_res_vec[np.triu_indices_from(n_ident_res_vec)] = flatten_list_of_lists(
+            n_ident_res_list_ur
+        )
+
+        # Fill the lower left triangle matrix with the values from the upper right triangle
+        n_ident_res_vec += n_ident_res_vec.T - np.diag(n_ident_res_vec.diagonal())
+
+        return np.array(n_ident_res_vec) / len(msa[0])
+
 
 def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     msa = [query] + matches
@@ -223,13 +280,10 @@ def proteome_wide_analysis():
 # experiments with MSA files
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    #proteome_wide_analysis()
-    prot_id = "A0A0A0MRZ7"
-    depths = get_neff_by_id("data/UP000005640_9606.tar", prot_id)
-    print(f"{prot_id}: {depths}")
-    """
+    # prot_id = "A0A0A0MRZ7"
+    # depths = get_neff_by_id("data/UP000005640_9606.tar", prot_id)
+    # print(f"{prot_id}: {depths}")
     with open("data/Q9A7K5.a3m") as a3m:
         query_id, query_seq, matches = extract_query_and_matches(a3m)
         depths = get_depth(query_seq, matches)
         print(depths)
-    """
