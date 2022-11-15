@@ -2,6 +2,7 @@
 
 import io
 import json
+import os.path
 
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -12,6 +13,9 @@ import tarfile
 import logging
 import string
 import numpy as np
+from functools import lru_cache
+from itertools import repeat
+from concurrent.futures import ProcessPoolExecutor
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "target_id",
@@ -30,6 +34,15 @@ MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
 # Generate translation table for lowercase removal
 LOWERCASE_DEL_TABLE = str.maketrans('', '', string.ascii_lowercase)
 
+
+@lru_cache(None)
+def warn_once(msg: str):
+    """
+    Print only log message only once.
+
+    Code taken from: https://stackoverflow.com/a/66062313
+    """
+    logging.warning(msg)
 
 @dataclass
 class MsaMatch:
@@ -56,9 +69,9 @@ class MsaMatch:
         return len(self.aligned_seq)
 
 
-def extract_query_and_matches(a3m: io.TextIOBase) -> tuple[str, str, list[MsaMatch]]:
+def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
     # TODO(johannes): do we really want _this_ parameter? or should we accept filename strings as well?
-    seqs = list(SeqIO.parse(a3m, "fasta"))
+    seqs = list(SeqIO.parse(a3m_handle, "fasta"))
     query = seqs[0]  # first sequence is the query sequence
     matches = []
     for idx, seq in tqdm(enumerate(seqs[1:]), desc='Loading MSAs', total=len(seqs)-1):
@@ -92,6 +105,7 @@ def normalized_hamming_distance(s1, s2) -> float:
 
 
 def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
+    """Per protein N_eff score."""
     num_matches = len(matches)
     n_eff = 0
     for s in tqdm(range(num_matches), desc='Compute Neffs'):
@@ -119,21 +133,71 @@ def seq_identity_vectorized(msa):
 
     return n_ident_res / len(msa[0])
 
+def compute_pairwise_seq_ident(combined_args):
+    i, msa_vec = combined_args
+    s1 = msa_vec[i]
+    result = [np.sum(s1 == s2) for s2 in msa_vec]
+    return result
+    #for j, s2 in enumerate(msa_vec):
+        # TODO (@Simon) only run j till j==i and set
+        # upper triangle matrix to same value
+        # TODO Try to sum after loop, i.e. trade memory for speed
+    #    row[j] = np.sum(s1 == s2)
+
+
+def seq_identity_parallel(msa):
+    msa_vec = np.array([list(seq) for seq in msa])
+    with ProcessPoolExecutor() as ppe:
+        pairwise_input = zip(range(len(msa_vec)), repeat(msa_vec))
+        pair_seq_ident = list(tqdm(
+            ppe.map(compute_pairwise_seq_ident, pairwise_input),
+            desc='Compute seq_ident',
+            total=len(msa_vec),
+        ))
+        return np.array(pair_seq_ident) / len(msa[0])
+
 def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     msa = [query] + matches
-    pair_seq_id = seq_identity_vectorized(msa)
+    pair_seq_id = seq_identity_parallel(msa)
 
     n_eff_weights = np.zeros(len(msa))
-    for i in range(len(msa)):
+    for i in tqdm(range(len(msa)), desc="calculating Neff weights", total=len(msa)):
         n_eff_weights[i] = sum(map(int, pair_seq_id[i] >= seq_id))
     inv_n_eff_weights = 1 / n_eff_weights
 
     n_non_gaps = np.zeros(len(query))
-    for c in range(len(query)):
+    for c in tqdm(range(len(query)), desc="counting gaps", total=len(query)):
         for i, m in enumerate(msa):
             n_non_gaps[c] += int(m[c] != '-') * inv_n_eff_weights[i]
     return n_non_gaps
-    
+
+
+def get_names_from_tarfile(tar_filename: str) -> list[str]:
+    with tarfile.open(tar_filename) as tar:
+        logging.debug(f"opened {tar_filename}")
+        names = tar.getnames()
+        logging.debug(f"found around {len(names)} .a3m files containing MSAs")
+        return names
+
+
+def get_neff_by_id(tar_filename, uniprot_id) -> np.ndarray:
+    if tar_filename.endswith(".tar.gz"):
+        warn_once(f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file")
+
+    # NOTE: This function expects the `tar_filename` to be in a special format to work with a generated .tar file. The
+    # MSAs are expected to be in a subdirectory called `f"{proteome_name}/msas/"`.
+
+    proteome_names, _ = os.path.splitext(os.path.basename(tar_filename))
+    a3m_subdir = os.path.join(proteome_names, "msas")
+
+    with tarfile.open(tar_filename) as tar:
+        a3m_filename = os.path.join(a3m_subdir, f"{uniprot_id}.a3m")
+        a3m = tar.extractfile(a3m_filename)
+        with io.TextIOWrapper(a3m, encoding="utf-8") as a3m:
+            query_id, query_seq, matches = extract_query_and_matches(a3m)
+            depths = get_depth(query_seq, matches)
+            return depths
+
 
 def proteome_wide_analysis():
     proteome_msas_filename = "data/UP000001816_190650.tar.gz"
@@ -160,7 +224,12 @@ def proteome_wide_analysis():
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     #proteome_wide_analysis()
+    prot_id = "A0A0A0MRZ7"
+    depths = get_neff_by_id("data/UP000005640_9606.tar", prot_id)
+    print(f"{prot_id}: {depths}")
+    """
     with open("data/Q9A7K5.a3m") as a3m:
         query_id, query_seq, matches = extract_query_and_matches(a3m)
         depths = get_depth(query_seq, matches)
         print(depths)
+    """
