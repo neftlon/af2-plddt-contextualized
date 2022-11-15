@@ -109,18 +109,16 @@ def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
 def seq_identity_vectorized(msa):
     msa_vec = np.array([list(seq) for seq in msa])
 
-    # Initialize with NaN in order to avoid silent errors
-    pair_seq_ident = np.empty((len(msa), len(msa)))
-    pair_seq_ident[:] = np.nan
+    n_ident_res = np.zeros((len(msa), len(msa)))
+    for i, s in tqdm(enumerate(msa_vec), desc='Compute n_ident_res (s/it decreasing)', total=len(msa)):
+        # For each sequence, count the number of identical residues in all following sequences
+        # TODO (@Simon) Try to sum after loop, i.e. trade memory for speed
+        n_ident_res[i, i:] = np.sum(msa_vec[i:] == s, axis=1)
 
-    for i, s1 in tqdm(enumerate(msa_vec), desc='Compute seq_ident', total=len(msa)):
-        for j, s2 in enumerate(msa_vec):
-            # TODO (@Simon) only run j till j==i and set
-            # upper triangle matrix to same value
-            # TODO Try to sum after loop, i.e. trade memory for speed
-            pair_seq_ident[i, j] = np.sum(s1 == s2)
+    # Fill the lower left triangle matrix with the values from the upper right triangle
+    n_ident_res += n_ident_res.T - np.diag(n_ident_res.diagonal())
 
-    return pair_seq_ident / len(msa[0])
+    return n_ident_res / len(msa[0])
 
 def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     msa = [query] + matches
