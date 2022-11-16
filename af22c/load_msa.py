@@ -16,6 +16,7 @@ import numpy as np
 from functools import lru_cache
 from itertools import repeat, chain
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing as mp
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "target_id",
@@ -181,7 +182,7 @@ def seq_identity_parallel(msa):
     # Distribute the sequence indices over multiple batches.
     # TODO use default number of workers (i.e. number of cpus) and read it out
     #  for splitting the MSA in batches.
-    n_batches = 4
+    n_batches = mp.cpu_count()
     batch_idxs = [range(i, len(msa_vec), n_batches) for i in range(n_batches)]
 
     with ProcessPoolExecutor(max_workers=n_batches) as ppe:
