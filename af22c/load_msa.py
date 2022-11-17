@@ -3,6 +3,7 @@
 import io
 import json
 import os.path
+import sys
 
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -238,7 +239,9 @@ def get_names_from_tarfile(tar_filename: str) -> list[str]:
         return names
 
 
-def get_neff_by_id(tar_filename, uniprot_id) -> np.ndarray:
+def calc_neff_by_id(tar_filename: str, uniprot_id: str) -> list[float]:
+    """Calculate Neff scores for a single protein (by its UniProt identifier)."""
+
     if tar_filename.endswith(".tar.gz"):
         warn_once(f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file")
 
@@ -254,7 +257,8 @@ def get_neff_by_id(tar_filename, uniprot_id) -> np.ndarray:
         with io.TextIOWrapper(a3m, encoding="utf-8") as a3m:
             query_id, query_seq, matches = extract_query_and_matches(a3m)
             depths = get_depth(query_seq, matches)
-            return depths
+            # TODO: since Neff scores ususally are in the area of 1k to 10k, rounding to `int` here should be sufficient
+            return list(map(lambda f: round(f), depths.tolist()))
 
 
 def proteome_wide_analysis():
@@ -281,6 +285,15 @@ def proteome_wide_analysis():
 # experiments with MSA files
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
+
+    # if we have the HUMAN proteome tar file available, try to load a protein from there
+    human_path = "data/UP000005640_9606.tar"
+    if os.path.exists(human_path):
+        logging.info("HUMAN proteome available, loading example Neff scores")
+        depths = calc_neff_by_id(human_path, "A0A0A0MRZ9")
+        print(depths)
+        sys.exit(0)  # don't run anything afterwards
+
     # prot_id = "A0A0A0MRZ7"
     # depths = get_neff_by_id("data/UP000005640_9606.tar", prot_id)
     # print(f"{prot_id}: {depths}")
