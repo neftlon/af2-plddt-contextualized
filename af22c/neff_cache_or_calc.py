@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import multiprocessing as mp
 import sys
 import json
 import tarfile
@@ -10,7 +9,6 @@ import os.path
 from dataclasses import dataclass
 import signal
 import time
-from tqdm import tqdm
 
 from af22c.load_msa import warn_once, calc_neff_by_id
 
@@ -109,7 +107,6 @@ def main():
     keyboard_interrupt_caught = False
     is_in_write = False
     num_neff_files_written = 0
-
 
     def exit_message():
         logging.info(f"program is shutting down, wrote {num_neff_files_written}/{len(ids_to_process)} Neff files")
