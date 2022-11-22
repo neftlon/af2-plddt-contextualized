@@ -76,7 +76,8 @@ def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
     seqs = list(SeqIO.parse(a3m_handle, "fasta"))
     query = seqs[0]  # first sequence is the query sequence
     matches = []
-    for idx, seq in tqdm(enumerate(seqs[1:]), desc='Loading MSAs', total=len(seqs)-1):
+    logging.info(" loading MSAs")
+    for idx, seq in tqdm(enumerate(seqs[1:]), total=len(seqs)-1):
         raw_attribs = seq.description.split("\t")
         # TODO(johannes): Sometimes (for instance in Q9A7K5.a3m) the MSA file contains the same (presumable) query
         # sequence at least twice. What purpose does this serve? The code below currently skips these duplications, but
@@ -110,7 +111,8 @@ def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
     """Per protein N_eff score."""
     num_matches = len(matches)
     n_eff = 0
-    for s in tqdm(range(num_matches), desc='Compute Neffs'):
+    logging.info(" computing Neffs")
+    for s in tqdm(range(num_matches)):
         inv_pi_s = 0.0
         for t in range(num_matches):
             s_seq = matches[s].aligned_seq
@@ -156,10 +158,7 @@ def batched_one_against_many_res_id(combined_args):
     Compute the number of identical residues between a batch of input sequences and a complete MSA.
     """
     idx, msa_vec = combined_args
-    # TODO Progress indication is a workaround.
-    #  Indicating progress like this leads to one progress bar flickering between
-    #  different processes
-    return [np.sum(msa_vec[i:] == msa_vec[i], axis=1) for i in tqdm(idx)]
+    return [np.sum(msa_vec[i:] == msa_vec[i], axis=1) for i in idx]
 
 
 def flatten_list_of_lists(l):
@@ -193,9 +192,10 @@ def seq_identity_parallel(msa):
         #  intervals and accumulate progress here?
         #  Beware, with the current batching early iterations are slower than later ones.
         #  This could be changed by shuffling and then reordering.
-        batched_n_ident_res_list = list(
+        logging.info(f" mapping one-against-many to {n_batches} jobs")
+        batched_n_ident_res_list = list(tqdm(
             ppe.map(batched_one_against_many_res_id, pairwise_input)
-        )
+        ))
 
         n_ident_res_list_ur = flatten_list_of_lists(batched_n_ident_res_list)
         idx = flatten_list_of_lists(batch_idxs)
@@ -220,12 +220,14 @@ def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     pair_seq_id = seq_identity_parallel(msa)
 
     n_eff_weights = np.zeros(len(msa))
-    for i in tqdm(range(len(msa)), desc="calculating Neff weights", total=len(msa)):
+    logging.info(" calulating Neff weights...")
+    for i in tqdm(range(len(msa)), total=len(msa)):
         n_eff_weights[i] = sum(map(int, pair_seq_id[i] >= seq_id))
     inv_n_eff_weights = 1 / n_eff_weights
 
     n_non_gaps = np.zeros(len(query))
-    for c in tqdm(range(len(query)), desc="counting gaps", total=len(query)):
+    logging.info(" counting gaps...")
+    for c in tqdm(range(len(query)), total=len(query)):
         for i, m in enumerate(msa):
             n_non_gaps[c] += int(m[c] != '-') * inv_n_eff_weights[i]
     return n_non_gaps
@@ -269,7 +271,7 @@ def proteome_wide_analysis():
         logging.debug(f"found around {len(names)} .a3m files containing MSAs")
         depths = {}
         # TODO: this loop looks like a bottleneck -- make it parallel?
-        for name in tqdm(names):
+        for name in tqdm(names, desc="iterating file in .tar"):
             if name.endswith(".a3m"):
                 # process .a3m member
                 with tar.extractfile(name) as raw_a3m:
