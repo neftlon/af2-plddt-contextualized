@@ -6,6 +6,7 @@ import tempfile
 import logging
 import os.path
 from dataclasses import dataclass
+import signal
 
 from af22c.load_msa import warn_once, calc_neff_by_id
 
@@ -101,3 +102,9 @@ if __name__ == "__main__":
     )
     scores = neff_src.get_neffs("A0A0A0MRZ9")
     print(scores)
+
+    def keyboard_interrupt_handler(signum, frame):
+        if signum == signal.SIGINT:
+            print("keyboard interrupt caught!")
+            sys.exit(0)
+    signal.signal(signal.SIGINT, keyboard_interrupt_handler)
