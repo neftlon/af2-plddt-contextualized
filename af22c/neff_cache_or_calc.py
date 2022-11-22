@@ -138,18 +138,22 @@ def main():
         proteome_name = neff_src.get_raw_proteome_name()
         protein_msa_files = [fn for fn in filenames if fn.startswith(f"{proteome_name}/msas/") and fn.endswith(".a3m")]
         avail_prot_ids = [os.path.splitext(os.path.basename(fn))[0] for fn in protein_msa_files]
-        logging.debug(f"found {len(avail_prot_ids)} proteins to look at")
+    logging.debug(f"found {len(avail_prot_ids)} proteins to look at")
 
     # calculate which IDs are already cached
-    logging.debug("finding protein IDs that already have cached Neff scores")
-    with tarfile.open(neff_src.cache_filename) as f:
-        filenames = f.getnames()
-        proteome_name = neff_src.get_raw_proteome_name()
-        protein_msa_files = [
-            fn for fn in filenames if fn.startswith(f"{proteome_name}/neffs/") and fn.endswith(".json")
-        ]
-        cached_prot_ids = [os.path.splitext(os.path.basename(fn))[0] for fn in protein_msa_files]
-        logging.debug(f"found {len(avail_prot_ids)} proteins that are already cached")
+    cached_prot_ids = []
+    if os.path.exists(neff_src.cache_filename):
+        logging.debug("finding protein IDs that already have cached Neff scores")
+        with tarfile.open(neff_src.cache_filename) as f:
+            filenames = f.getnames()
+            proteome_name = neff_src.get_raw_proteome_name()
+            protein_msa_files = [
+                fn for fn in filenames if fn.startswith(f"{proteome_name}/neffs/") and fn.endswith(".json")
+            ]
+            cached_prot_ids = [os.path.splitext(os.path.basename(fn))[0] for fn in protein_msa_files]
+    else:
+        logging.debug("unable to find cache file, will create one when writing first list of Neff scores")
+    logging.debug(f"found {len(cached_prot_ids)} proteins that are already cached")
 
     # calculate which proteins need to be cached
     ids_to_process = set(avail_prot_ids) - set(cached_prot_ids)

@@ -3,6 +3,7 @@
 import os
 import json
 import streamlit as st
+from af22c.neff_cache_or_calc import NeffCacheOrCalc
 
 
 @st.experimental_singleton(suppress_st_warning=True)
@@ -92,6 +93,11 @@ if __name__ == "__main__":
     plddts_filename = proteome_name + plddts_fltrd_ending
     seth_preds_filename = "Human_SETH_preds.txt"
 
+    neff_src = NeffCacheOrCalc(
+        proteome_filename="data/UP000005640_9606.tar",
+        cache_filename="data/UP000005640_9696_neff_cache.tar",
+    )
+
     print("loading per-protein scores")
     plddts = load_plddt_scores(os.path.join(data_dir, plddts_filename))
     seth_preds = load_seth_preds(os.path.join(data_dir, seth_preds_filename))
@@ -106,12 +112,13 @@ if __name__ == "__main__":
         prot_id = st.selectbox("Which protein would you like to look at?", shared_prot_ids)
         prot_plddts = np.array(plddts[prot_id])
         prot_pred_dis = np.array(seth_preds[prot_id])
+        prot_neffs = np.array(neff_src.get_neffs(prot_id))
         proteome_wide = st.checkbox("Show proteome wide analysis")
 
     # Construct DataFrame for visualization with seaborn
     df = pd.DataFrame(
-            np.array([prot_plddts, prot_pred_dis]).transpose(),
-            columns=["pLDDT score", "pred. disorder"],
+            np.array([prot_plddts, prot_pred_dis, prot_neffs]).transpose(),
+            columns=["pLDDT score", "pred. disorder", "Neff"],
         )
 
     """## Per-protein metrics"""
@@ -140,13 +147,15 @@ if __name__ == "__main__":
         st.pyplot(fig)
 
     """## Per-residue scores"""
-    fig, (ax_plddt, ax_pred_dis) = plt.subplots(nrows=2)
+    fig, (ax_plddt, ax_pred_dis, ax_neff) = plt.subplots(nrows=3)
     ax_plddt.set_xlim(0, len(prot_plddts))
     ax_plddt.set_ylim(0, 100)
     sns.lineplot(data=df, x=df.index, y="pLDDT score", ax=ax_plddt)
     ax_pred_dis.set_xlim(0, len(prot_pred_dis))
     ax_pred_dis.set_ylim(-20, 20)
     sns.lineplot(data=df, x=df.index, y="pred. disorder", ax=ax_pred_dis, color="orange")
+    ax_neff.set_xlim(0, len(prot_neffs))
+    sns.lineplot(data=df, x=df.index, y="Neff", ax=ax_neff, color="green")
     st.pyplot(fig)
 
     """
