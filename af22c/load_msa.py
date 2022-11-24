@@ -18,6 +18,8 @@ from functools import lru_cache
 from itertools import repeat, chain
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
+from typing import Callable
+
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "target_id",
@@ -233,6 +235,17 @@ def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     return n_non_gaps
 
 
+def get_depth_naive(query, matches: list[MsaMatch]):
+    msa = [query] + matches
+
+    n_non_gaps = np.zeros(len(query))
+    logging.info(" counting gaps...")
+    for c in tqdm(range(len(query)), total=len(query)):
+        for i, m in enumerate(msa):
+            n_non_gaps[c] += int(m[c] != '-')
+    return n_non_gaps
+
+
 def get_names_from_tarfile(tar_filename: str) -> list[str]:
     with tarfile.open(tar_filename) as tar:
         logging.debug(f"opened {tar_filename}")
@@ -261,6 +274,39 @@ def calc_neff_by_id(tar_filename: str, uniprot_id: str) -> list[float]:
             depths = get_depth(query_seq, matches)
             # TODO: since Neff scores ususally are in the area of 1k to 10k, rounding to `int` here should be sufficient
             return list(map(lambda f: round(f), depths.tolist()))
+
+
+def get_depths_naive_by_a3m(a3m_handle) -> list[int]:
+    """Calculate MSA size for a single protein given as a3m file handle."""
+    _, query_seq, matches = extract_query_and_matches(a3m_handle)
+    depths = get_depth_naive(query_seq, matches)
+    return depths.tolist()
+
+
+def get_a3m_size(a3m_handle) -> tuple[int, int]:
+    """Calculate MSA size for a single protein given as a3m file handle."""
+    _, query_seq, matches = extract_query_and_matches(a3m_handle)
+    return len(query_seq), len(matches) + 1  # +1 for query sequence
+
+
+def apply_by_id(func: Callable, tar_filename: str, uniprot_id: str):
+    """
+    Apply func to an .a3m-file stored in the given tar. The .a3m-file is identified by uniprot_id.
+    """
+    if tar_filename.endswith(".tar.gz"):
+        warn_once(f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file")
+
+    # NOTE: This function expects the `tar_filename` to be in a special format to work with a generated .tar file. The
+    # MSAs are expected to be in a subdirectory called `f"{proteome_name}/msas/"`.
+
+    proteome_names, _ = os.path.splitext(os.path.basename(tar_filename))
+    a3m_subdir = os.path.join(proteome_names, "msas")
+
+    with tarfile.open(tar_filename) as tar:
+        a3m_filename = os.path.join(a3m_subdir, f"{uniprot_id}.a3m")
+        a3m = tar.extractfile(a3m_filename)
+        with io.TextIOWrapper(a3m, encoding="utf-8") as a3m:
+            return func(a3m)
 
 
 def proteome_wide_analysis():
@@ -294,6 +340,12 @@ if __name__ == "__main__":
         logging.info("HUMAN proteome available, loading example Neff scores")
         depths = calc_neff_by_id(human_path, "A0A0A0MRZ9")
         print(depths)
+        # Code example: How to compute msa size
+        # seq_len, num_seq = apply_by_id(get_a3m_size, human_path, "A0A0A0MRZ9")
+
+        # Code example: How to compute naive depths
+        # depths_naive = apply_by_id(get_depths_naive_by_a3m, human_path, "A0A0A0MRZ9")
+        # print(depths_naive)
         sys.exit(0)  # don't run anything afterwards
 
     # prot_id = "A0A0A0MRZ7"
