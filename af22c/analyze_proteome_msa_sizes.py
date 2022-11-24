@@ -34,11 +34,19 @@ def main():
     for uniprot_id in tqdm(avail_prot_ids):
         msa_sizes.append(apply_by_id(get_a3m_size, neff_src.proteome_filename, uniprot_id))
 
+    filename = f'data/{proteome_name}_msa_sizes.csv'
     size_df = pd.DataFrame(np.array(msa_sizes), columns=["query_length", "sequence_count"])
+    size_df.to_csv(filename, index=False)
+    logging.info(f"written MSA sizes to {filename}")
+
+
+def plot_msa_sizes(filename):
+    size_df = pd.read_csv(filename)
     fig, ax = plt.subplots()
     sns.scatterplot(data=size_df, x='sequence_count', y='query_length', ax=ax)
     ax.set(xlabel='Number of Sequences in MSA', ylabel='Length of Query')
     plt.savefig("data/msa_size_scatter.png")
+
 
 if __name__=='__main__':
     main()
