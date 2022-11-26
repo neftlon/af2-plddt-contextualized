@@ -22,6 +22,11 @@ conda activate env
 pip install -r requirements.txt
 ```
 
+Install the `af22c` package in development mode with the following command in the project root directory:
+```bash
+pip install -e .
+```
+
 For using the download script, the `wget` utility must be installed on the system.
 
 ### 1. Data download
