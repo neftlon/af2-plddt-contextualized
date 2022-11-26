@@ -54,8 +54,8 @@ class MsaMatch:
     MsaMatch object containing the parsed header field in attribs, the original sequence in orig_seq    and the sequence without insertions.
     """
     attribs: MsaMatchAttribs
-    orig_seq: str
-    aligned_seq: str = field(init=False)
+    orig_seq: Seq
+    aligned_seq: Seq = field(init=False)
 
     def __post_init__(self):
         # Convert to String and back in order to use string translation method instead of
@@ -67,7 +67,7 @@ class MsaMatch:
         return self.aligned_seq[item]
 
     def __str__(self):
-        return self.aligned_seq
+        return str(self.aligned_seq)
 
     def __len__(self):
         return len(self.aligned_seq)
@@ -78,7 +78,7 @@ def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
     seqs = list(SeqIO.parse(a3m_handle, "fasta"))
     query = seqs[0]  # first sequence is the query sequence
     matches = []
-    logging.info(" loading MSAs")
+    logging.info("loading MSA")
     for idx, seq in tqdm(enumerate(seqs[1:]), total=len(seqs)-1):
         raw_attribs = seq.description.split("\t")
         # TODO(johannes): Sometimes (for instance in Q9A7K5.a3m) the MSA file contains the same (presumable) query
