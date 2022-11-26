@@ -1,29 +1,7 @@
 #!/usr/bin/env python3
 
-import logging
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from pathlib import Path
+import argparse
 from af22c.proteome import Proteome
-
-
-def compute_and_store_msa_sizes(proteome):
-    p = Path('data') / f'{proteome.name}_msa_size.csv'
-    logging.info(f"examining MSA sizes ...")
-    size_df = pd.DataFrame(np.array(proteome.get_msa_sizes()), columns=["query_length", "sequence_count"])
-    size_df.to_csv(p, index=False)
-    logging.info(f"written MSA sizes to {p}")
-
-
-def plot_msa_sizes(filename):
-    csv_path = Path(filename)
-    size_df = pd.read_csv(csv_path)
-    fig, ax = plt.subplots()
-    sns.scatterplot(data=size_df, x='sequence_count', y='query_length', ax=ax)
-    ax.set(xlabel='Number of Sequences in MSA', ylabel='Length of Query')
-    plt.savefig(Path('data') / f'{csv_path.stem}_scatter.png')
 
 
 def show_duplicates(proteome):
@@ -32,7 +10,17 @@ def show_duplicates(proteome):
 
 
 if __name__=='__main__':
-    proteome = Proteome.from_folder('data/UP000005640_9606', name='UP000005640_9606')
-    # TODO specify by argument what happens (show plot, just compute, ...?)
-    # show_duplicates(proteome)
-    compute_and_store_msa_sizes(proteome)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('proteome_dir')
+    parser.add_argument('-c', '--compute_size', action='store_true')
+    parser.add_argument('-p', '--plot_size', action='store_true')
+    parser.add_argument('-d', '--duplicates', action='store_true')
+    args = parser.parse_args()
+
+    proteome = Proteome.from_folder(args.proteome_dir)
+    if args.compute_size:
+        proteome.compute_msa_sizes()
+    if args.plot_size:
+        proteome.plot_msa_sizes()
+    if args.duplicates:
+        show_duplicates(proteome)
