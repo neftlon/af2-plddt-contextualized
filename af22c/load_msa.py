@@ -19,6 +19,8 @@ from itertools import repeat, chain
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
 from typing import Callable
+from pathlib import Path
+from collections import defaultdict
 
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
@@ -71,6 +73,51 @@ class MsaMatch:
 
     def __len__(self):
         return len(self.aligned_seq)
+
+
+@dataclass
+class MultipleSeqAlign:
+    """
+    This class manages MSAs.
+    Insertions are removed from matches upon loading.
+    """
+    query_id: str
+    query_seq: Seq
+    matches: list[MsaMatch]
+
+    @classmethod
+    def from_a3m(cls, path: Path):
+        with open(path) as a3m:
+            return cls(*extract_query_and_matches(a3m))
+
+    def get_size(self) -> tuple[int, int]:
+        return len(self.query_seq), len(self.matches) + 1  # +1 for query sequence
+
+    def vectorize(self):
+        msa = [self.query] + self.matches
+        return np.array([list(seq) for seq in msa])
+
+    def examine_duplicates(self):
+        logging.info(f"looking for duplicates in MSA ...")
+        # TODO find out why duplicates occur
+        seqs_by_id = defaultdict(list)
+        seqs_by_id[self.query_id] = [str(self.query_seq)]
+        for m in self.matches:
+            seqs_by_id[m.attribs.target_id].append(str(m.aligned_seq))
+
+        n_dupl = 0
+        for prot_id, seqs in seqs_by_id.items():
+            if len(seqs) > 1:
+                n_dupl += 1
+                seqs_string = '\n'.join(seqs)
+                logging.info(f"The ID {prot_id} appears more than once with these sequences:\n"
+                             f"{seqs_string}")
+        if n_dupl:
+            logging.info(f"In total {n_dupl} of {len(seqs_by_id)} IDs occur more than once!")
+        else:
+            logging.info(f"No duplicates found!")
+        return n_dupl
+
 
 
 def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
