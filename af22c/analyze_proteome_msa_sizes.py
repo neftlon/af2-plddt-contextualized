@@ -1,52 +1,38 @@
 #!/usr/bin/env python3
 
-import tarfile
 import logging
-import os.path
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from tqdm import tqdm
-
-from af22c.load_msa import apply_by_id, get_a3m_size
-from af22c.neff_cache_or_calc import NeffCacheOrCalc
+from pathlib import Path
+from af22c.proteome import Proteome
 
 
-def main():
-    # setup cache handler
-    neff_src = NeffCacheOrCalc(
-        proteome_filename="data/UP000005640_9606.tar",
-        cache_filename="data/UP000005640_9696_neff_cache.tar",
-    )
-
-    # calculate which IDs are available
-    logging.debug("finding available protein IDs")
-    with tarfile.open(neff_src.proteome_filename) as f:
-        filenames = f.getnames()
-        proteome_name = neff_src.get_raw_proteome_name()
-        protein_msa_files = [fn for fn in filenames if fn.startswith(f"{proteome_name}/msas/") and fn.endswith(".a3m")]
-        avail_prot_ids = [os.path.splitext(os.path.basename(fn))[0] for fn in protein_msa_files]
-    logging.debug(f"found {len(avail_prot_ids)} proteins to look at")
-
-    logging.info(f"examining MSA sizes")
-    msa_sizes = []
-    for uniprot_id in tqdm(avail_prot_ids):
-        msa_sizes.append(apply_by_id(get_a3m_size, neff_src.proteome_filename, uniprot_id))
-
-    filename = f'data/{proteome_name}_msa_sizes.csv'
-    size_df = pd.DataFrame(np.array(msa_sizes), columns=["query_length", "sequence_count"])
-    size_df.to_csv(filename, index=False)
-    logging.info(f"written MSA sizes to {filename}")
+def compute_and_store_msa_sizes(proteome):
+    p = Path('data') / f'{proteome.name}_msa_size.csv'
+    logging.info(f"examining MSA sizes ...")
+    size_df = pd.DataFrame(np.array(proteome.get_msa_sizes()), columns=["query_length", "sequence_count"])
+    size_df.to_csv(p, index=False)
+    logging.info(f"written MSA sizes to {p}")
 
 
 def plot_msa_sizes(filename):
-    size_df = pd.read_csv(filename)
+    csv_path = Path(filename)
+    size_df = pd.read_csv(csv_path)
     fig, ax = plt.subplots()
     sns.scatterplot(data=size_df, x='sequence_count', y='query_length', ax=ax)
     ax.set(xlabel='Number of Sequences in MSA', ylabel='Length of Query')
-    plt.savefig("data/msa_size_scatter.png")
+    plt.savefig(Path('data') / f'{csv_path.stem}_scatter.png')
+
+
+def show_duplicates(proteome):
+    for m in proteome.get_msas():
+        m.examine_duplicates()
 
 
 if __name__=='__main__':
-    main()
+    proteome = Proteome.from_folder('data/UP000005640_9606', name='UP000005640_9606')
+    # TODO specify by argument what happens (show plot, just compute, ...?)
+    # show_duplicates(proteome)
+    compute_and_store_msa_sizes(proteome)
