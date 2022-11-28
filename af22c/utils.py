@@ -4,6 +4,18 @@ This module contains some functionality that is used in different scripts and ca
 
 import tarfile
 import os
+from functools import lru_cache
+import logging
+
+
+@lru_cache(None)
+def warn_once(msg: str):
+    """
+    Print only log message only once.
+
+    Code taken from: https://stackoverflow.com/a/66062313
+    """
+    logging.warning(msg)
 
 
 def get_raw_proteome_name(proteome_filename: str) -> str:

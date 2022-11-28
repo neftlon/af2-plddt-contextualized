@@ -11,8 +11,8 @@ import signal
 import time
 from types import NoneType
 
-from af22c.load_msa import warn_once, calc_neff_by_id
-from af22c.utils import get_raw_proteome_name
+from af22c.load_msa import calc_neff_by_id
+from af22c.utils import get_raw_proteome_name, warn_once
 
 
 @dataclass

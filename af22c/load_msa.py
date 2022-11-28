@@ -14,7 +14,6 @@ import tarfile
 import logging
 import string
 import numpy as np
-from functools import lru_cache
 from itertools import repeat, chain
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
@@ -22,6 +21,7 @@ from typing import Callable
 from pathlib import Path
 from collections import defaultdict
 
+from af22c.utils import warn_once
 
 MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
     "target_id",
@@ -40,15 +40,6 @@ MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
 # Generate translation table for lowercase removal
 LOWERCASE_DEL_TABLE = str.maketrans('', '', string.ascii_lowercase)
 
-
-@lru_cache(None)
-def warn_once(msg: str):
-    """
-    Print only log message only once.
-
-    Code taken from: https://stackoverflow.com/a/66062313
-    """
-    logging.warning(msg)
 
 @dataclass
 class MsaMatch:
@@ -413,8 +404,8 @@ if __name__ == "__main__":
         # seq_len, num_seq = apply_by_id(get_a3m_size, human_path, "A0A0A0MRZ9")
 
         # Code example: How to compute naive depths
-        # depths_naive = apply_by_id(get_depths_naive_by_a3m, human_path, "A0A0A0MRZ9")
-        # print(depths_naive)
+        depths_naive = apply_by_id(get_depths_naive_by_a3m, human_path, "A0A0A0MRZ9")
+        print(depths_naive)
         sys.exit(0)  # don't run anything afterwards
 
     # prot_id = "A0A0A0MRZ7"
