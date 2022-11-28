@@ -11,6 +11,7 @@ import signal
 import time
 
 from af22c.load_msa import warn_once, calc_neff_by_id
+from af22c.utils import get_raw_proteome_name
 
 
 @dataclass
@@ -40,8 +41,8 @@ class NeffCacheOrCalc:
     proteome_filename: str
     cache_filename: str
 
-    def get_raw_proteome_name(self):
-        return os.path.splitext(os.path.basename(self.proteome_filename))[0]
+    def get_raw_proteome_name(self) -> str:
+        return get_raw_proteome_name(self.proteome_filename)
 
     def get_neffs_for_protein_path(self, uniprot_id: str) -> str:
         proteome_name = self.get_raw_proteome_name()
