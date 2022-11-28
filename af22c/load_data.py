@@ -7,6 +7,7 @@ import statistics
 
 from af22c.load_msa import calc_naive_neff_by_id
 from af22c.neff_cache_or_calc import NeffCacheOrCalc
+from af22c.plot_pairwise_correlation import plot_pairwise_correlation
 
 
 @st.experimental_singleton(suppress_st_warning=True)
@@ -197,28 +198,12 @@ if __name__ == "__main__":
     Values are rounded to two digits.
     """
 
-    # calculate pairwise correlation
-    pairwise_correlation = np.zeros((4, 4))
+    fig, ax = plt.subplots()
+
     values = [prot_plddts, prot_pred_dis, prot_neffs, prot_neffs_naive]
     labels = ["pLDDT", "pred. dis.", "Neff", "Neff naive"]
-    for i, xs in enumerate(values):
-        for j, ys in enumerate(values):
-            pairwise_correlation[i, j] = round(statistics.correlation(xs, ys), 2)
 
-    # plot pairwise correlation
-    fig, ax = plt.subplots()
-    im = ax.imshow(pairwise_correlation)  # plot correlation matrix
-
-    ax.set_xticks(np.arange(len(values)), labels=labels)
-    ax.set_yticks(np.arange(len(values)), labels=labels)
-    ax.grid(False)
-
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-
-    for i in range(len(values)):
-        for j in range(len(values)):
-            corr = pairwise_correlation[i, j]
-            text = ax.text(j, i, corr, ha="center", va="center", color=(0.5 - 0.5 * corr,) * 3)
+    plot_pairwise_correlation(ax, values, labels)
 
     fig.tight_layout()
     st.pyplot(fig)
