@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
     neff_src = NeffCacheOrCalc(
         proteome_filename="data/UP000005640_9606.tar",
-        cache_filename="data/UP000005640_9696_neff_cache.tar",
+        cache_filename="data/UP000005640_9606_neff_cache.tar",
     )
 
     print("loading per-protein scores")
