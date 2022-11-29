@@ -5,6 +5,7 @@ from tqdm import tqdm
 import logging
 from pathlib import Path
 from typing import Generator
+import json
 
 from af22c.load_msa import MultipleSeqAlign
 
@@ -25,9 +26,13 @@ class Proteome:
     msa_path: Path
     data_dir: Path
     msa_sizes_path: Path = field(init=False)
+    neff_dir: Path = field(init=False)
+    neff_naive_dir: Path = field(init=False)
 
     def __post_init__(self):
         self.msa_sizes_path = self.data_dir / f"{self.name}_msa_size.csv"
+        self.neff_dir = self.data_dir / self.name / 'neffs'
+        self.neff_naive_dir = self.data_dir / self.name / 'neffs_naive'
 
     @classmethod
     def from_folder(cls, path: str, data_dir: str = 'data'):
@@ -49,6 +54,35 @@ class Proteome:
     def get_uniprot_ids(self) -> set[str]:
         filenames = [f for f in self.msa_path.iterdir() if f.is_file()]
         return {f.stem for f in filenames if f.suffix == ".a3m"}
+
+    def _store_neffs(self, path, neffs):
+        # NOTE: since Neff scores usually are in the area of 1k to 10k, rounding to `int` here should be sufficient
+        neffs = list(map(lambda f: round(f), neffs.tolist()))
+
+        with path.open(mode='w+') as p:
+            json.dump(neffs, p)
+
+    def compute_neff_by_id(self, uniprot_id: str):
+        self.neff_dir.mkdir(parents=True, exist_ok=True)
+        neff_path = self.neff_dir / f"{uniprot_id}.json"
+        if neff_path.is_file():
+            logging.info(f"neffs for {uniprot_id} are already cached, skipped computation")
+        else:
+            logging.info(f"computing neffs for {uniprot_id} ...")
+            msa = self.get_msa_by_id(uniprot_id)
+            neffs = msa.compute_neff()
+            self._store_neffs(neff_path, neffs)
+
+    def compute_neff_naive_by_id(self, uniprot_id: str):
+        self.neff_naive_dir.mkdir(parents=True, exist_ok=True)
+        neff_path = self.neff_naive_dir / f"{uniprot_id}.json"
+        if neff_path.is_file():
+            logging.info(f"naive neffs for {uniprot_id} are already cached, skipped computation")
+        else:
+            logging.info(f"computing naive neffs for {uniprot_id} ...")
+            msa = self.get_msa_by_id(uniprot_id)
+            neffs = msa.compute_neff_naive()
+            self._store_neffs(neff_path, neffs)
 
     def _store_msa_sizes(self, msa_sizes: list[list]):
         size_df = pd.DataFrame(msa_sizes, columns=["uniprot_id", "query_length", "sequence_count"])
