@@ -1,7 +1,5 @@
-import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
 from tqdm import tqdm
 import logging
@@ -48,17 +46,29 @@ class Proteome:
         for uniprot_id in tqdm(self.get_uniprot_ids()):
             yield self.get_msa_by_id(uniprot_id)
 
-    def get_uniprot_ids(self) -> list[str]:
+    def get_uniprot_ids(self) -> set[str]:
         filenames = [f for f in self.msa_path.iterdir() if f.is_file()]
-        return [f.stem for f in filenames if f.suffix == ".a3m"]
+        return {f.stem for f in filenames if f.suffix == ".a3m"}
 
-    def compute_msa_sizes(self) -> pd.DataFrame:
+    def _store_msa_sizes(self, msa_sizes: list[list]):
+        size_df = pd.DataFrame(msa_sizes, columns=["uniprot_id", "query_length", "sequence_count"])
+        size_df.to_csv(self.msa_sizes_path, mode='a', header=not self.msa_sizes_path.is_file(), index=False)
+
+    def compute_msa_sizes(self):
         logging.info(f"computing MSA sizes ...")
-        msa_sizes = [msa.get_size() for msa in self.get_msas()]
-        size_df = pd.DataFrame(np.array(msa_sizes), columns=["query_length", "sequence_count"])
-        size_df.to_csv(self.msa_sizes_path, index=False)
+        msa_sizes = []
+        for i, msa in enumerate(self.get_msas()):
+            q_len, n_seq = msa.get_size()
+            q_id = msa.query_id
+            msa_sizes.append([q_id, q_len, n_seq])
+
+            # Write to file every 100 iterations
+            if i % 100 == 0:
+                self._store_msa_sizes(msa_sizes)
+                msa_sizes = []
+        if msa_sizes:
+            self._store_msa_sizes(msa_sizes)
         logging.info(f"wrote MSA sizes to {self.msa_sizes_path}")
-        return size_df
 
     def get_msa_sizes(self) -> pd.DataFrame:
         if self.msa_sizes_path.is_file():
@@ -66,7 +76,9 @@ class Proteome:
             return pd.read_csv(self.msa_sizes_path)
         else:
             logging.info(f"no msa size file found")
-            return self.compute_msa_sizes()
+            self.compute_msa_sizes()
+            return pd.read_csv(self.msa_sizes_path)
+
 
     def plot_msa_sizes(self):
         fig_path = self.data_dir / f'{self.name}_msa_size_scatter.png'
