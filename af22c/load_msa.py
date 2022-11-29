@@ -79,14 +79,24 @@ class MultipleSeqAlign:
     @classmethod
     def from_a3m(cls, path: Path):
         with open(path) as a3m:
+            # TODO make extract_query_and_matches a method of the MSA class
             return cls(*extract_query_and_matches(a3m))
 
     def get_size(self) -> tuple[int, int]:
         return len(self.query_seq), len(self.matches) + 1  # +1 for query sequence
 
     def vectorize(self):
-        msa = [self.query] + self.matches
+        # TODO test
+        msa = [self.query_seq] + self.matches
         return np.array([list(seq) for seq in msa])
+
+    def compute_neff(self):
+        # TODO make get_depth a method of MSA class
+        return get_depth(self.query_seq, self.matches)
+
+    def compute_neff_naive(self):
+        # TODO make get_depth_naive a method of MSA class
+        return get_depth_naive(self.query_seq, self.matches)
 
     def examine_duplicates(self):
         logging.info(f"looking for duplicates in MSA ...")
@@ -237,6 +247,8 @@ def seq_identity_parallel(msa):
             ppe.map(batched_one_against_many_res_id, pairwise_input)
         ))
 
+        # TODO The following generation of the full matrix from the upper triangle matrix is another bottleneck.
+        #  We should speed it up for computing bigger MSAs.
         n_ident_res_list_ur = flatten_list_of_lists(batched_n_ident_res_list)
         idx = flatten_list_of_lists(batch_idxs)
 
