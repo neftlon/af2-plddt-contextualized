@@ -9,8 +9,10 @@ import os.path
 from dataclasses import dataclass
 import signal
 import time
+from types import NoneType
 
-from af22c.load_msa import warn_once, calc_neff_by_id
+from af22c.load_msa import calc_neff_by_id
+from af22c.utils import get_raw_proteome_name, warn_once
 
 
 @dataclass
@@ -40,8 +42,8 @@ class NeffCacheOrCalc:
     proteome_filename: str
     cache_filename: str
 
-    def get_raw_proteome_name(self):
-        return os.path.splitext(os.path.basename(self.proteome_filename))[0]
+    def get_raw_proteome_name(self) -> str:
+        return get_raw_proteome_name(self.proteome_filename)
 
     def get_neffs_for_protein_path(self, uniprot_id: str) -> str:
         proteome_name = self.get_raw_proteome_name()
@@ -54,6 +56,10 @@ class NeffCacheOrCalc:
         If the cache file is not available or the cache file does not contain scores for the requested protein, `None`
         is returned.
         """
+        # check whether the cache file has been specified
+        if isinstance(self.cache_filename, NoneType):
+            return None  # TODO: do we need a different return type for this?
+
         if not os.path.exists(self.cache_filename):
             logging.debug(f"cache file {self.cache_filename} does not exist")
             return None  # TODO: do we need a different return type for this?
@@ -76,6 +82,11 @@ class NeffCacheOrCalc:
 
     def store_in_cache(self, uniprot_id: str, scores: list[float]):
         """Store Neff scores for a protein in cache file"""
+        # don't try to store anything in cache, if the cache file location has not been specified
+        if isinstance(self.cache_filename, NoneType):
+            warn_once(f"cannot store precomputed Neff scores for {uniprot_id}, cache file was not specified")
+            return
+
         # write scores to temp file
         with tempfile.TemporaryFile() as temp:
             enc = json.dumps(scores).encode()
@@ -128,7 +139,7 @@ def main():
     # setup cache handler
     neff_src = NeffCacheOrCalc(
         proteome_filename="data/UP000005640_9606.tar",
-        cache_filename="data/UP000005640_9696_neff_cache.tar",
+        cache_filename="data/UP000005640_9606_neff_cache.tar",
     )
 
     # calculate which IDs are available

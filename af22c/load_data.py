@@ -3,7 +3,11 @@
 import os
 import json
 import streamlit as st
+import statistics
+
+from af22c.load_msa import calc_naive_neff_by_id
 from af22c.neff_cache_or_calc import NeffCacheOrCalc
+from af22c.plot_pairwise_correlation import plot_pairwise_correlation
 
 
 @st.experimental_singleton(suppress_st_warning=True)
@@ -95,7 +99,7 @@ if __name__ == "__main__":
 
     neff_src = NeffCacheOrCalc(
         proteome_filename="data/UP000005640_9606.tar",
-        cache_filename="data/UP000005640_9696_neff_cache.tar",
+        cache_filename="data/UP000005640_9606_neff_cache.tar",
     )
 
     print("loading per-protein scores")
@@ -113,41 +117,65 @@ if __name__ == "__main__":
         prot_plddts = np.array(plddts[prot_id])
         prot_pred_dis = np.array(seth_preds[prot_id])
         prot_neffs = np.array(neff_src.get_neffs(prot_id))
+        prot_neffs_naive = np.array(calc_naive_neff_by_id(neff_src.proteome_filename, prot_id))
         proteome_wide = st.checkbox("Show proteome wide analysis")
 
     # Construct DataFrame for visualization with seaborn
     df = pd.DataFrame(
-            np.array([prot_plddts, prot_pred_dis, prot_neffs]).transpose(),
-            columns=["pLDDT score", "pred. disorder", "Neff"],
+            np.array([prot_plddts, prot_pred_dis, prot_neffs, prot_neffs_naive]).transpose(),
+            columns=["pLDDT score", "pred. disorder", "Neff", "Neff naive"],
         )
 
     """## Per-protein metrics"""
 
-    col_plddts, col_pred_dis = st.columns(2)
+    # TODO(johannes): think about merging these cols into one plot for "comparable" scales
+    col_plddts, col_pred_dis, col_neff, col_neff_naive = st.columns(4)
     with col_plddts:
         """### pLDDT"""
         st.metric("mean pLDDT", f"{np.mean(prot_plddts):0.04f}")
         st.metric("std pLDDT", f"{np.std(prot_plddts):0.04f}")
         fig, ax = plt.subplots()
-        fig.set_size_inches(1, 4)
+        fig.set_size_inches(0.5, 2.5)
         ax.set_ylim(0, 100)
         sns.boxplot(data=df, y="pLDDT score")
         st.pyplot(fig)
 
     with col_pred_dis:
-        """### Predicted disorder"""
+        """### Pred. dis."""
         st.metric(f"mean predicted disorder",
                   f"{np.mean(prot_pred_dis):0.04f}")
         st.metric(f"std predicted disorder",
                   f"{np.std(prot_pred_dis):0.04f}")
         fig, ax = plt.subplots()
-        fig.set_size_inches(1, 4)
+        fig.set_size_inches(0.5, 2.5)
         ax.set_ylim(-20, 20)
         sns.boxplot(data=df, y="pred. disorder", color="orange")
         st.pyplot(fig)
 
+    with col_neff:
+        """### Neff"""
+        st.metric(f"mean Neff",
+                  f"{int(np.mean(prot_neffs))}")
+        st.metric(f"std Neff",
+                  f"{int(np.std(prot_neffs))}")
+        fig, ax = plt.subplots()
+        fig.set_size_inches(0.5, 2.5)
+        sns.boxplot(data=df, y="Neff", color="green")
+        st.pyplot(fig)
+
+    with col_neff_naive:
+        """### Neff naive"""
+        st.metric(f"mean Neff naive",
+                  f"{int(np.mean(prot_neffs_naive))}")
+        st.metric(f"std Neff naive",
+                  f"{int(np.std(prot_neffs_naive))}")
+        fig, ax = plt.subplots()
+        fig.set_size_inches(0.5, 2.5)
+        sns.boxplot(data=df, y="Neff naive", color="brown")
+        st.pyplot(fig)
+
     """## Per-residue scores"""
-    fig, (ax_plddt, ax_pred_dis, ax_neff) = plt.subplots(nrows=3)
+    fig, (ax_plddt, ax_pred_dis, ax_neff, ax_neff_naive) = plt.subplots(nrows=4, figsize=(8, 8))
     ax_plddt.set_xlim(0, len(prot_plddts))
     ax_plddt.set_ylim(0, 100)
     sns.lineplot(data=df, x=df.index, y="pLDDT score", ax=ax_plddt)
@@ -156,6 +184,28 @@ if __name__ == "__main__":
     sns.lineplot(data=df, x=df.index, y="pred. disorder", ax=ax_pred_dis, color="orange")
     ax_neff.set_xlim(0, len(prot_neffs))
     sns.lineplot(data=df, x=df.index, y="Neff", ax=ax_neff, color="green")
+    ax_neff_naive.set_xlim(0, len(prot_neffs_naive))
+    sns.lineplot(data=df, x=df.index, y="Neff naive", ax=ax_neff_naive, color="brown")
+    st.pyplot(fig)
+
+    """
+    ## Correlation matrix
+    
+    Pairwise Pearson correlation coefficient between two values.
+    
+    White means a correlation value of `1.0`, darker patches mean less correlation.
+    
+    Values are rounded to two digits.
+    """
+
+    fig, ax = plt.subplots()
+
+    values = [prot_plddts, prot_pred_dis, prot_neffs, prot_neffs_naive]
+    labels = ["pLDDT", "pred. dis.", "Neff", "Neff naive"]
+
+    plot_pairwise_correlation(ax, values, labels)
+
+    fig.tight_layout()
     st.pyplot(fig)
 
     """
