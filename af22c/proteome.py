@@ -82,10 +82,10 @@ class Proteome:
 
     def plot_msa_sizes(self):
         fig_path = self.data_dir / f'{self.name}_msa_size_scatter.png'
-        fig, ax = plt.subplots()
-        sns.scatterplot(data=self.get_msa_sizes(), x='sequence_count', y='query_length', ax=ax)
-        ax.set(xlabel='Number of Sequences in MSA', ylabel='Length of Query')
-        plt.savefig(fig_path)
+        msa_sizes = self.get_msa_sizes()
+        sns.set_style('whitegrid')
+        fig = sns.jointplot(data=msa_sizes, x='sequence_count', y='query_length')
+        fig.savefig(fig_path)
         logging.info(f"saved figure to {fig_path}")
 
 
