@@ -10,6 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('data_dir')
     parser.add_argument('-n', '--n_sequences')
     parser.add_argument('-l', '--query_length')
+    parser.add_argument('-d', '--dry_run', action='store_true')
     args = parser.parse_args()
 
     proteome = Proteome.from_folder(args.proteome_dir, args.data_dir)
@@ -21,9 +22,10 @@ if __name__ == '__main__':
     logging.info(f"computing Neffs for {len(subset_small)} MSAs with query length <= {int(args.query_length)} "
                  f"and number of sequences <= {int(args.n_sequences)} ...")
 
-    for uniprot_id in subset_small["uniprot_id"]:
-        proteome.compute_neff_by_id(uniprot_id)
-        proteome.compute_neff_naive_by_id(uniprot_id)
+    if not args.dry_run:
+        for uniprot_id in subset_small["uniprot_id"]:
+            proteome.compute_neff_by_id(uniprot_id)
+            proteome.compute_neff_naive_by_id(uniprot_id)
 
 
 
