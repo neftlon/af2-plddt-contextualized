@@ -113,13 +113,13 @@ class Proteome:
             self.compute_msa_sizes()
             return pd.read_csv(self.msa_sizes_path)
 
-
     def plot_msa_sizes(self):
         fig_path = self.data_dir / f'{self.name}_msa_size_scatter.png'
         msa_sizes = self.get_msa_sizes()
         sns.set_style('whitegrid')
-        fig = sns.jointplot(data=msa_sizes, x='sequence_count', y='query_length')
-        fig.savefig(fig_path)
+        p = sns.jointplot(data=msa_sizes, x='sequence_count', y='query_length')
+        p.set_axis_labels('Number of Sequences in MSA', 'Number of Amino Acids in Query')
+        p.savefig(fig_path)
         logging.info(f"saved figure to {fig_path}")
 
 
