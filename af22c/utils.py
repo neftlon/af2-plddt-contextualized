@@ -6,6 +6,7 @@ import tarfile
 import os
 from functools import lru_cache
 import logging
+from pathlib import Path
 
 
 @lru_cache(None)
@@ -20,7 +21,7 @@ def warn_once(msg: str):
 
 def get_raw_proteome_name(proteome_filename: str) -> str:
     """Take a full proteome filename and only select the proteome name"""
-    return os.path.splitext(os.path.basename(proteome_filename))[0]
+    return os.path.basename(proteome_filename).split(".")[0]  # the proteome name comes before the .tar.gz extension.
 
 
 def get_protein_ids(proteome_filename: str) -> list[str]:
