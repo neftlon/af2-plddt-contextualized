@@ -85,6 +85,10 @@ class Proteome:
         with path.open(mode='w+') as p:
             json.dump(neffs, p)
 
+    def _load_neffs(self, path: Path):
+        with path.open() as p:
+            return json.load(p)
+
     def compute_neff_by_id(self, uniprot_id: str):
         self.neff_dir.mkdir(parents=True, exist_ok=True)
         neff_path = self.neff_dir / f"{uniprot_id}.json"
@@ -106,6 +110,21 @@ class Proteome:
             msa = self.get_msa_by_id(uniprot_id)
             neffs = msa.compute_neff_naive()
             self._store_neffs(neff_path, neffs)
+    def get_neff_by_id(self, uniprot_id: str) -> list:
+        neff_path = self.neff_dir / f"{uniprot_id}.json"
+        try:
+            return self._load_neffs(neff_path)
+        except FileNotFoundError:
+            # TODO compute and store Neff if not found
+            raise FileNotFoundError(f"Neff file for {uniprot_id} not found. Compute Neffs first!")
+
+    def get_neff_naive_by_id(self, uniprot_id: str) -> list:
+        neff_naive_path = self.neff_naive_dir / f"{uniprot_id}.json"
+        try:
+            return self._load_neffs(neff_naive_path)
+        except FileNotFoundError:
+            # TODO compute and store Neff naive if not found
+            raise FileNotFoundError(f"Neff naive file for {uniprot_id} not found. Compute Neffs first!")
 
     def _store_msa_sizes(self, msa_sizes: list[list]):
         size_df = pd.DataFrame(msa_sizes, columns=["uniprot_id", "query_length", "sequence_count"])
