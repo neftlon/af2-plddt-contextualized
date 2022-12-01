@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from dataclasses import dataclass, field
@@ -51,9 +52,31 @@ class Proteome:
         for uniprot_id in tqdm(self.get_uniprot_ids()):
             yield self.get_msa_by_id(uniprot_id)
 
-    def get_uniprot_ids(self) -> set[str]:
-        filenames = [f for f in self.msa_path.iterdir() if f.is_file()]
-        return {f.stem for f in filenames if f.suffix == ".a3m"}
+    def get_uniprot_ids(self, mode='msa_available') -> set[str]:
+        # Select which path to search for what kind of files.
+        if mode == 'msa_available':
+            search_dir = self.msa_path
+            suffix = ".a3m"
+        elif mode == 'neff_available':
+            search_dir = self.neff_dir
+            suffix = ".json"
+        elif mode == 'neff_naive_available':
+            search_dir = self.neff_naive_dir
+            suffix = ".json"
+        else:
+            raise KeyError(f"Unknown mode '{mode}'.")
+
+        # Search path and extract IDs from filenames
+        filenames = [f for f in search_dir.iterdir() if f.is_file()]
+        return {f.stem for f in filenames if f.suffix == suffix}
+
+    def get_uniprot_ids_in_size(self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf) -> set[str]:
+        msa_sizes = self.get_msa_sizes()
+        in_size = msa_sizes[(msa_sizes["query_length"] <= max_q_len)
+                            & (msa_sizes["sequence_count"] <= max_n_seq)
+                            & (msa_sizes["query_length"] >= min_q_len)
+                            & (msa_sizes["sequence_count"] >= min_n_seq)]
+        return set(in_size["uniprot_id"])
 
     def _store_neffs(self, path, neffs):
         # NOTE: since Neff scores usually are in the area of 1k to 10k, rounding to `int` here should be sufficient
