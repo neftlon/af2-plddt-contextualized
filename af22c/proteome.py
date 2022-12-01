@@ -165,3 +165,122 @@ class Proteome:
         logging.info(f"saved figure to {fig_path}")
 
 
+@dataclass
+class ProteomePLDDTs:
+    """
+    This class manages plDDTs for whole Proteomes.
+
+    The plDDTs are expected to be stored in a .json file in a dictionary by ID like:
+
+    ```python
+    plDDTs = {prot_id1: [...], prot_id2: [...]}
+    ```
+    """
+    plddts: dict[str: list[float]]
+
+    @classmethod
+    def from_file(cls, plDDT_path: str):
+        path = Path(plDDT_path)
+        with path.open() as p:
+            return cls(json.load(p))
+
+    def get_uniprot_ids(self) -> set[str]:
+        return set(self.plddts.keys())
+
+    def get_plDDTs_by_id(self, uniprot_id: str) -> list[float]:
+        return self.plddts[uniprot_id]
+
+    def __getitem__(self, item):
+        return self.get_plDDTs_by_id(item)
+
+
+@dataclass
+class ProteomeSETHPreds:
+    """
+    This class manages SETH predictions for whole Proteomes.
+
+    The SETH_preds are expected to be stored in a .json file in a dictionary by ID like:
+
+    ```python
+    SETH_preds = {prot_id1: [...], prot_id2: [...]}
+    ```
+    """
+    seth_preds: dict[str: list[float]]
+
+    @classmethod
+    def from_file(cls, SETH_preds_path: str):
+        path = Path(SETH_preds_path)
+        with path.open() as p:
+            lines = p.readlines()
+            headers = lines[::2]
+            disorders = lines[1::2]
+            proteome_seth_preds = {}
+            for header, disorder in zip(headers, disorders):
+                uniprot_id = header.split("|")[1]
+                disorder = list(map(float, disorder.split(", ")))
+                proteome_seth_preds[uniprot_id] = disorder
+            return cls(proteome_seth_preds)
+
+    def get_uniprot_ids(self) -> set[str]:
+        return set(self.seth_preds.keys())
+
+    def get_seth_preds_by_id(self, uniprot_id: str) -> list[float]:
+        return self.seth_preds[uniprot_id]
+
+    def __getitem__(self, item):
+        return self.get_seth_preds_by_id(item)
+
+
+@dataclass
+class ProteomeCorrelation:
+    msas: Proteome
+    plddts: ProteomePLDDTs
+    seth_preds: ProteomeSETHPreds
+
+    def _get_shared_ids(self) -> set[str]:
+        neff_ids = self.msas.get_uniprot_ids(mode='neff_available')
+        neff_naive_ids = self.msas.get_uniprot_ids(mode='neff_naive_available')
+        plddt_ids = self.plddts.get_uniprot_ids()
+        seth_pred_ids = self.seth_preds.get_uniprot_ids()
+
+        shared_ids = neff_ids & neff_naive_ids & plddt_ids & seth_pred_ids
+        not_shared_ids = (neff_ids | neff_naive_ids | plddt_ids | seth_pred_ids) - shared_ids
+        logging.info(f"Disregarding {len(not_shared_ids)} proteins since they are not available in all datasets.")
+        return shared_ids
+
+    def _get_length_consistent_ids(self) -> set[str]:
+        mismatched_len_ids = set()
+        shared_ids = self._get_shared_ids()
+        for prot_id in shared_ids:
+            reference_len = len(self.msas.get_neff_by_id(prot_id))
+            is_mismatch = (reference_len != len(self.plddts[prot_id])
+                           or reference_len != len(self.seth_preds[prot_id])
+                           or reference_len != len(self.msas.get_neff_naive_by_id(prot_id)))
+            if is_mismatch:
+                mismatched_len_ids.add(prot_id)
+        logging.info(f"Disregarding {len(mismatched_len_ids)} proteins due to sequence length mismatches.")
+        return shared_ids - mismatched_len_ids
+
+    def get_uniprot_ids(self) -> set[str]:
+        return self._get_length_consistent_ids()
+
+    def _generate_observation_df(self, uniprot_id) -> pd.DataFrame:
+        obs_dict = {'pLDDTs': self.plddts[uniprot_id],
+                    'pred. dis.': self.seth_preds[uniprot_id],
+                    'Neff': self.msas.get_neff_by_id(uniprot_id),
+                    'Neff naive': self.msas.get_neff_naive_by_id(uniprot_id)}
+        return pd.DataFrame(obs_dict)
+
+    def get_pearson_corr(self, uniprot_id) -> pd.DataFrame:
+        obs_df = self._generate_observation_df(uniprot_id)
+        return obs_df.corr()
+
+    def plot_mean_pearson_corr_mat(self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf):
+        prot_ids = self.get_uniprot_ids()
+        prot_ids = prot_ids & self.msas.get_uniprot_ids_in_size(min_q_len=min_q_len,
+                                                                max_q_len=max_q_len,
+                                                                min_n_seq=min_n_seq,
+                                                                max_n_seq=max_n_seq)
+        pearson_correlations = [self.get_pearson_corr(prot_id) for prot_id in prot_ids]
+        # TODO Stack them, average, plot, store
+
