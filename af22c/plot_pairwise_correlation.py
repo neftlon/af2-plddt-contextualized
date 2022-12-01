@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 import statistics
 
 
@@ -19,7 +20,8 @@ def plot_pairwise_correlation(ax: plt.Axes, datasets: list[list[float]], labels:
             pairwise_correlation[i, j] = round(statistics.correlation(xs, ys), 2)
 
     # plot pairwise correlation
-    im = ax.imshow(pairwise_correlation)  # plot correlation matrix
+    color_map = LinearSegmentedColormap.from_list("", ["yellow", "blue", "yellow"])
+    im = ax.imshow(pairwise_correlation, cmap=color_map, vmin=-1, vmax=1)  # plot correlation matrix
 
     ax.set_xticks(np.arange(len(datasets)), labels=labels)
     ax.set_yticks(np.arange(len(datasets)), labels=labels)
