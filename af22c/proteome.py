@@ -282,6 +282,22 @@ class ProteomeCorrelation:
                                                                 max_q_len=max_q_len,
                                                                 min_n_seq=min_n_seq,
                                                                 max_n_seq=max_n_seq)
-        pearson_correlations = [self.get_pearson_corr(prot_id) for prot_id in prot_ids]
-        # TODO Stack them, average, plot, store
+        df_index = None
+        p_corr_list = []
+        for prot_id in prot_ids:
+            p_corr = self.get_pearson_corr(prot_id)
+            if not df_index:
+                df_index = (p_corr.index, p_corr.columns)
+            p_corr_list.append(p_corr.to_numpy())
+        p_corr_array = np.stack(p_corr_list)
+        # TODO Fix NaN values when including small msas, problem probably in computation
+        # TODO return following DataFrame and do plotting somewhere else
+        p_corr_mean = pd.DataFrame(np.mean(p_corr_array, axis=0), index=df_index[0], columns=df_index[1])
 
+        fig_path = self.msas.data_dir / f'{self.msas.name}_mean_pearson_corr.png'
+        sns.set_style('whitegrid')
+        mask = np.triu(np.ones_like(p_corr_mean, dtype=bool))
+        cmap = sns.diverging_palette(230, 20, as_cmap=True)
+        p = sns.heatmap(p_corr_mean, annot=True, mask=mask, cmap=cmap, vmin=-1, vmax=1)
+        p.get_figure().savefig(fig_path)
+        logging.info(f"saved figure to {fig_path}")
