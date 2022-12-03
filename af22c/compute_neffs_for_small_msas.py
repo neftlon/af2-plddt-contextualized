@@ -1,6 +1,7 @@
 import argparse
 from af22c.proteome import Proteome
 import logging
+import math
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
@@ -8,8 +9,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('proteome_dir')
     parser.add_argument('data_dir')
-    parser.add_argument('-n', '--max_n_sequences', type=int)
-    parser.add_argument('-l', '--max_query_length', type=int)
+    parser.add_argument('-n', '--max_n_sequences', default=math.inf, type=int)
+    parser.add_argument('-l', '--max_query_length', default=math.inf, type=int)
     parser.add_argument('-m', '--min_n_sequences', default=0, type=int)
     parser.add_argument('-k', '--min_query_length', default=0, type=int)
     parser.add_argument('-d', '--dry_run', action='store_true')
