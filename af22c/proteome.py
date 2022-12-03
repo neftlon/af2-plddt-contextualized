@@ -71,6 +71,7 @@ class Proteome:
         return {f.stem for f in filenames if f.suffix == suffix}
 
     def get_uniprot_ids_in_size(self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf) -> set[str]:
+        # TODO the behaviour of loading from msa_sizes and not from available MSAs could be confusing. Fix!
         msa_sizes = self.get_msa_sizes()
         in_size = msa_sizes[(msa_sizes["query_length"] <= max_q_len)
                             & (msa_sizes["sequence_count"] <= max_n_seq)
