@@ -18,8 +18,10 @@ if __name__ == '__main__':
 
     proteome = Proteome.from_folder(args.proteome_dir, args.data_dir)
 
+    msa_sizes = proteome.get_msa_sizes()
     uniprot_ids = proteome.get_uniprot_ids()
-    logging.info(f"found {len(uniprot_ids)} MSAs, selecting subset ...")
+    logging.info(f"found {len(uniprot_ids)} MSAs and sizes for {len(msa_sizes)} MSAs, "
+                 f"selecting subset ...")
     subset_ids = proteome.get_uniprot_ids_in_size(min_q_len=args.min_query_length,
                                                   max_q_len=args.max_query_length,
                                                   min_n_seq=args.min_n_sequences,
