@@ -391,13 +391,15 @@ class ProteomeSETHPreds(ProteomewidePerResidueMetric):
 
 @dataclass
 class ProteomeCorrelation:
-    msas: Proteome
+    neffs: ProteomeNeffs
+    neffs_naive: ProteomeNeffsNaive
     plddts: ProteomePLDDTs
     seth_preds: ProteomeSETHPreds
+    msa_sizes: ProteomeMSASizes
 
     def _get_shared_ids(self) -> set[str]:
-        neff_ids = self.msas.get_uniprot_ids(mode='neff_available')
-        neff_naive_ids = self.msas.get_uniprot_ids(mode='neff_naive_available')
+        neff_ids = self.neffs.get_uniprot_ids()
+        neff_naive_ids = self.neffs_naive.get_uniprot_ids()
         plddt_ids = self.plddts.get_uniprot_ids()
         seth_pred_ids = self.seth_preds.get_uniprot_ids()
 
@@ -410,10 +412,10 @@ class ProteomeCorrelation:
         mismatched_len_ids = set()
         shared_ids = self._get_shared_ids()
         for prot_id in shared_ids:
-            reference_len = len(self.msas.get_neff_by_id(prot_id))
+            reference_len = len(self.neffs[prot_id])
             is_mismatch = (reference_len != len(self.plddts[prot_id])
                            or reference_len != len(self.seth_preds[prot_id])
-                           or reference_len != len(self.msas.get_neff_naive_by_id(prot_id)))
+                           or reference_len != len(self.neffs_naive[prot_id]))
             if is_mismatch:
                 mismatched_len_ids.add(prot_id)
         logging.info(f"Disregarding {len(mismatched_len_ids)} proteins due to sequence length mismatches.")
@@ -425,20 +427,20 @@ class ProteomeCorrelation:
     def _generate_observation_df(self, uniprot_id) -> pd.DataFrame:
         obs_dict = {'pLDDTs': self.plddts[uniprot_id],
                     'pred. dis.': self.seth_preds[uniprot_id],
-                    'Neff': self.msas.get_neff_by_id(uniprot_id),
-                    'Neff naive': self.msas.get_neff_naive_by_id(uniprot_id)}
+                    'Neff': self.neffs[uniprot_id],
+                    'Neff naive': self.neffs_naive[uniprot_id]}
         return pd.DataFrame(obs_dict)
 
     def get_pearson_corr(self, uniprot_id) -> pd.DataFrame:
         obs_df = self._generate_observation_df(uniprot_id)
         return obs_df.corr()
 
-    def plot_mean_pearson_corr_mat(self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf):
+    def plot_mean_pearson_corr_mat(self, data_dir, name, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf):
         prot_ids = self.get_uniprot_ids()
-        prot_ids = prot_ids & self.msas.get_uniprot_ids_in_size(min_q_len=min_q_len,
-                                                                max_q_len=max_q_len,
-                                                                min_n_seq=min_n_seq,
-                                                                max_n_seq=max_n_seq)
+        prot_ids = prot_ids & self.msa_sizes.get_uniprot_ids_in_size(min_q_len=min_q_len,
+                                                                     max_q_len=max_q_len,
+                                                                     min_n_seq=min_n_seq,
+                                                                     max_n_seq=max_n_seq)
         df_index = None
         p_corr_list = []
         for prot_id in prot_ids:
@@ -451,7 +453,7 @@ class ProteomeCorrelation:
         # TODO return the following DataFrame and do plotting somewhere else
         p_corr_mean = pd.DataFrame(np.mean(p_corr_array, axis=0), index=df_index[0], columns=df_index[1])
 
-        fig_path = self.msas.data_dir / f'{self.msas.name}_mean_pearson_corr.png'
+        fig_path = Path(data_dir) / f'{name}_mean_pearson_corr.png'
         sns.set_style('whitegrid')
         mask = np.triu(np.ones_like(p_corr_mean, dtype=bool))
         cmap = sns.diverging_palette(230, 20, as_cmap=True)

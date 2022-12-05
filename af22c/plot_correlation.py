@@ -1,17 +1,21 @@
 import argparse
-from af22c.proteome import Proteome, ProteomePLDDTs, ProteomeCorrelation, ProteomeSETHPreds
+from af22c.proteome import *
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('proteome_dir')
     parser.add_argument('data_dir')
+    parser.add_argument('neff_dir')
+    parser.add_argument('neff_naive_dir')
     parser.add_argument('plddts_path')
     parser.add_argument('seth_path')
+    parser.add_argument('msa_sizes_dir')
     args = parser.parse_args()
 
-    proteome = Proteome.from_folder(args.proteome_dir, args.data_dir)
-    plddts = ProteomePLDDTs.from_file(plddt_path=args.plddts_path)
-    seths = ProteomeSETHPreds.from_file(seth_preds_path=args.seth_path)
-    correlation = ProteomeCorrelation(proteome, plddts, seths)
+    neffs = ProteomeNeffs.from_directory(args.neff_dir, "Neff")
+    neffs_naive = ProteomeNeffsNaive.from_directory(args.neff_naive_dir, "Neff naive")
+    plddts = ProteomePLDDTs.from_file(args.plddts_path)
+    seths = ProteomeSETHPreds.from_file(args.seth_path)
+    msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_dir)
+    correlation = ProteomeCorrelation(neffs, neffs_naive, plddts, seths, msa_sizes)
 
-    correlation.plot_mean_pearson_corr_mat(min_q_len=10, max_q_len=5000, min_n_seq=100, max_n_seq=5000)
+    correlation.plot_mean_pearson_corr_mat(args.data_dir, "HUMAN", min_q_len=10, max_q_len=5000, min_n_seq=100, max_n_seq=5000)
