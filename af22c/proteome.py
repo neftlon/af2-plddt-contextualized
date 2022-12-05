@@ -56,17 +56,18 @@ class ProteomeMSAs(Proteome):
     ```python
     msas_for_protein_path = f"{proteome_name}/msas/{uniprot_id}.a3m"
     ```
-"""
+    """
+
     name: str  # proteome name
     msa_path: Path  # MSA path (directory containing MSAs)
 
     @classmethod
     def from_directory(cls, proteome_path: str):
         proteome_path = Path(proteome_path)
-        return cls(proteome_path.name, proteome_path / 'msas')
+        return cls(proteome_path.name, proteome_path / "msas")
 
     def __getitem__(self, uniprot_id: str) -> MultipleSeqAlign:
-        return MultipleSeqAlign.from_a3m(self.msa_path / f'{uniprot_id}.a3m')
+        return MultipleSeqAlign.from_a3m(self.msa_path / f"{uniprot_id}.a3m")
 
     def get_msas(self) -> Generator[MultipleSeqAlign, None, None]:
         logging.info(f"iterating over MSAs ...")
@@ -99,31 +100,45 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
             size = self.msa_sizes[self.msa_sizes["uniprot_id"] == uniprot_id]
             n_seq, q_len = size["sequence_count"], size["query_length"]
             if not isinstance(n_seq, int) or not isinstance(q_len, int):
-                raise ValueError(f"The type of the dimensions is ({type(n_seq)}, {type(q_len)} and not (int, int). "
-                                 f"Maybe the uniprot_id {uniprot_id} appears multiple times in the "
-                                 f"msa sizes .csv file?")
+                raise ValueError(
+                    f"The type of the dimensions is ({type(n_seq)}, {type(q_len)} and not (int, int). "
+                    f"Maybe the uniprot_id {uniprot_id} appears multiple times in the "
+                    f"msa sizes .csv file?"
+                )
             return n_seq, q_len
 
         def get_uniprot_ids(self) -> set[str]:
             return set(self.msa_sizes["uniprot_id"])
 
-        def get_uniprot_ids_in_size(self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf) -> set[str]:
-            in_size = self.msa_sizes[(self.msa_sizes["query_length"] <= max_q_len)
-                                     & (self.msa_sizes["sequence_count"] <= max_n_seq)
-                                     & (self.msa_sizes["query_length"] >= min_q_len)
-                                     & (self.msa_sizes["sequence_count"] >= min_n_seq)]
+        def get_uniprot_ids_in_size(
+            self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf
+        ) -> set[str]:
+            in_size = self.msa_sizes[
+                (self.msa_sizes["query_length"] <= max_q_len)
+                & (self.msa_sizes["sequence_count"] <= max_n_seq)
+                & (self.msa_sizes["query_length"] >= min_q_len)
+                & (self.msa_sizes["sequence_count"] >= min_n_seq)
+            ]
             return set(in_size["uniprot_id"])
 
         def get_msa_sizes(self) -> pd.DataFrame:
             return self.msa_sizes
 
         def precompute_msa_sizes(self):
-            raise Exception("Cannot compute MSA sizes, no MSAs available. "
-                            "Please provide MSAs on initialization by using `ProteomeMSASizes.from_msas`.")
+            raise Exception(
+                "Cannot compute MSA sizes, no MSAs available. "
+                "Please provide MSAs on initialization by using `ProteomeMSASizes.from_msas`."
+            )
 
     class ComputingMSASizeProvider(CSVMSASizeProvider):
         """Compute MSA sizes from a proteome on demand."""
-        def __init__(self, proteome_msas: ProteomeMSAs, cache_file_path: Path, write_csv_on_demand: bool):
+
+        def __init__(
+            self,
+            proteome_msas: ProteomeMSAs,
+            cache_file_path: Path,
+            write_csv_on_demand: bool,
+        ):
             super().__init__(cache_file_path)
             self.proteome_msas = proteome_msas
             self.write_csv_on_demand = write_csv_on_demand
@@ -144,8 +159,15 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
                 raise IOError(
                     f"Writing CSV file {self.filepath} is not allowed, write_csv_on_demand flag was set to False!"
                 )
-            size_df = pd.DataFrame(msa_sizes, columns=["uniprot_id", "query_length", "sequence_count"])
-            size_df.to_csv(super().filepath, mode='a', header=not super().filepath.is_file(), index=False)
+            size_df = pd.DataFrame(
+                msa_sizes, columns=["uniprot_id", "query_length", "sequence_count"]
+            )
+            size_df.to_csv(
+                super().filepath,
+                mode="a",
+                header=not super().filepath.is_file(),
+                index=False,
+            )
 
         def compute_msa_size(self, uniprot_id: str):
             msa = self.proteome_msas[uniprot_id]
@@ -194,12 +216,18 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         return cls(cls.CSVMSASizeProvider(Path(path)))
 
     @classmethod
-    def from_msas(cls, proteome_msas: ProteomeMSAs, data_dir="data", write_csv_on_demand=True):
+    def from_msas(
+        cls, proteome_msas: ProteomeMSAs, data_dir="data", write_csv_on_demand=True
+    ):
         # TODO: figure out whether we want to pass the data_dir here as a parameter
         proteome_name = proteome_msas.name
         data_dir = Path(data_dir)
         cache_file_path = data_dir / f"{proteome_name}_msa_size.csv"
-        return cls(cls.ComputingMSASizeProvider(proteome_msas, cache_file_path, write_csv_on_demand))
+        return cls(
+            cls.ComputingMSASizeProvider(
+                proteome_msas, cache_file_path, write_csv_on_demand
+            )
+        )
 
     def __getitem__(self, uniprot_id: str) -> tuple[int, int]:
         """Return a tuple containing `(n_sequences, len_query)` for a given UniProt identifier."""
@@ -208,9 +236,13 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
     def get_uniprot_ids(self) -> set[str]:
         return self.msa_size_provider.get_uniprot_ids()
 
-    def get_uniprot_ids_in_size(self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf) -> set[str]:
+    def get_uniprot_ids_in_size(
+        self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf
+    ) -> set[str]:
         # TODO(johannes): can we also just delegate using **kwargs (problem: method parameters are not written here)
-        return self.msa_size_provider.get_uniprot_ids_in_size(min_q_len, max_q_len, min_n_seq, max_n_seq)
+        return self.msa_size_provider.get_uniprot_ids_in_size(
+            min_q_len, max_q_len, min_n_seq, max_n_seq
+        )
 
     def get_msa_sizes(self) -> pd.DataFrame:
         return self.msa_size_provider.get_msa_sizes()
@@ -220,11 +252,13 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
 
     def plot_msa_sizes(self, data_dir="data", name="human"):
         data_dir = Path(data_dir)
-        fig_path = data_dir / f'{name}_msa_size_scatter.png'
+        fig_path = data_dir / f"{name}_msa_size_scatter.png"
         msa_sizes = self.get_msa_sizes()
-        sns.set_style('whitegrid')
-        p = sns.jointplot(data=msa_sizes, x='query_length', y='sequence_count')
-        p.set_axis_labels('Number of Amino Acids in Query', 'Number of Sequences in MSA')
+        sns.set_style("whitegrid")
+        p = sns.jointplot(data=msa_sizes, x="query_length", y="sequence_count")
+        p.set_axis_labels(
+            "Number of Amino Acids in Query", "Number of Sequences in MSA"
+        )
         p.savefig(fig_path)
         logging.info(f"saved figure to {fig_path}")
 
@@ -248,7 +282,9 @@ class ProteomeScores(ProteomewidePerResidueMetric):
                 return self._load_scores(cache_path)
             except FileNotFoundError:
                 # TODO compute and store scores if not found
-                raise FileNotFoundError(f"Score file for {uniprot_id} not found. Compute scores first!")
+                raise FileNotFoundError(
+                    f"Score file for {uniprot_id} not found. Compute scores first!"
+                )
 
         @staticmethod
         def _load_scores(path: Path):
@@ -256,9 +292,11 @@ class ProteomeScores(ProteomewidePerResidueMetric):
                 return json.load(p)
 
         def compute_scores_by_id(self, uniprot_id: str):
-            raise Exception("Cannot compute MSA scores, no MSAs available. "
-                            "Please provide MSAs on initialization by using the appropriate "
-                            "`Proteome[SCORE NAME].from_msas`.")
+            raise Exception(
+                "Cannot compute MSA scores, no MSAs available. "
+                "Please provide MSAs on initialization by using the appropriate "
+                "`Proteome[SCORE NAME].from_msas`."
+            )
 
     @dataclass
     class ScoresFromProteomeProvider(ScoresFromDirProvider):
@@ -282,12 +320,14 @@ class ProteomeScores(ProteomewidePerResidueMetric):
             self.scores_dir.mkdir(parents=True, exist_ok=True)
             scores_path = self.scores_dir / f"{uniprot_id}.json"
             if scores_path.is_file():
-                logging.info(f"Scores for {uniprot_id} are already cached, skipped computation")
+                logging.info(
+                    f"Scores for {uniprot_id} are already cached, skipped computation"
+                )
             else:
                 logging.info(f"Computing scores for {uniprot_id} ...")
                 msa = self.proteome_msas[uniprot_id]
                 scores = self.compute_scores_fn(msa)
-                with scores_path.open(mode='w+') as p:
+                with scores_path.open(mode="w+") as p:
                     json.dump(scores, p)
 
     score_provider: ScoresFromDirProvider
@@ -297,10 +337,14 @@ class ProteomeScores(ProteomewidePerResidueMetric):
         return cls(cls.ScoresFromDirProvider(Path(path)))
 
     @classmethod
-    def from_msas(cls, proteome_msas: ProteomeMSAs, scores_dir: str, write_scores_on_demand=True):
+    def from_msas(
+        cls, proteome_msas: ProteomeMSAs, scores_dir: str, write_scores_on_demand=True
+    ):
         scores_dir = Path(scores_dir)
         return cls(
-            cls.ScoresFromProteomeProvider(scores_dir, proteome_msas, write_scores_on_demand, cls.compute_scores)
+            cls.ScoresFromProteomeProvider(
+                scores_dir, proteome_msas, write_scores_on_demand, cls.compute_scores
+            )
         )
 
     def get_uniprot_ids(self) -> set[str]:
@@ -351,7 +395,8 @@ class ProteomePLDDTs(ProteomewidePerResidueMetric):
     plDDTs = {prot_id1: [...], prot_id2: [...]}
     ```
     """
-    plddts_by_id: dict[str: list[float]]
+
+    plddts_by_id: dict[str : list[float]]
 
     @classmethod
     def from_file(cls, plddt_path: str):
@@ -380,7 +425,8 @@ class ProteomeSETHPreds(ProteomewidePerResidueMetric):
     SETH_preds = {prot_id1: [...], prot_id2: [...]}
     ```
     """
-    seth_preds_by_id: dict[str: list[float]]
+
+    seth_preds_by_id: dict[str : list[float]]
 
     @classmethod
     def from_file(cls, seth_preds_path: str):
@@ -421,8 +467,12 @@ class ProteomeCorrelation:
         seth_pred_ids = self.seth_preds.get_uniprot_ids()
 
         shared_ids = neff_ids & neff_naive_ids & plddt_ids & seth_pred_ids
-        not_shared_ids = (neff_ids | neff_naive_ids | plddt_ids | seth_pred_ids) - shared_ids
-        logging.info(f"Disregarding {len(not_shared_ids)} proteins since they are not available in all datasets.")
+        not_shared_ids = (
+            neff_ids | neff_naive_ids | plddt_ids | seth_pred_ids
+        ) - shared_ids
+        logging.info(
+            f"Disregarding {len(not_shared_ids)} proteins since they are not available in all datasets."
+        )
         return shared_ids
 
     def _get_length_consistent_ids(self) -> set[str]:
@@ -430,34 +480,50 @@ class ProteomeCorrelation:
         shared_ids = self._get_shared_ids()
         for prot_id in shared_ids:
             reference_len = len(self.neffs[prot_id])
-            is_mismatch = (reference_len != len(self.plddts[prot_id])
-                           or reference_len != len(self.seth_preds[prot_id])
-                           or reference_len != len(self.neffs_naive[prot_id]))
+            is_mismatch = (
+                reference_len != len(self.plddts[prot_id])
+                or reference_len != len(self.seth_preds[prot_id])
+                or reference_len != len(self.neffs_naive[prot_id])
+            )
             if is_mismatch:
                 mismatched_len_ids.add(prot_id)
-        logging.info(f"Disregarding {len(mismatched_len_ids)} proteins due to sequence length mismatches.")
+        logging.info(
+            f"Disregarding {len(mismatched_len_ids)} proteins due to sequence length mismatches."
+        )
         return shared_ids - mismatched_len_ids
 
     def get_uniprot_ids(self) -> set[str]:
         return self._get_length_consistent_ids()
 
     def _generate_observation_df(self, uniprot_id) -> pd.DataFrame:
-        obs_dict = {self.plddts.metric_name: self.plddts[uniprot_id],
-                    self.seth_preds.metric_name: self.seth_preds[uniprot_id],
-                    self.neffs.metric_name: self.neffs[uniprot_id],
-                    self.neffs_naive.metric_name: self.neffs_naive[uniprot_id]}
+        obs_dict = {
+            self.plddts.metric_name: self.plddts[uniprot_id],
+            self.seth_preds.metric_name: self.seth_preds[uniprot_id],
+            self.neffs.metric_name: self.neffs[uniprot_id],
+            self.neffs_naive.metric_name: self.neffs_naive[uniprot_id],
+        }
         return pd.DataFrame(obs_dict)
 
     def get_pearson_corr(self, uniprot_id) -> pd.DataFrame:
         obs_df = self._generate_observation_df(uniprot_id)
         return obs_df.corr()
 
-    def plot_mean_pearson_corr_mat(self, data_dir, name, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf):
+    def plot_mean_pearson_corr_mat(
+        self,
+        data_dir,
+        name,
+        min_q_len=0,
+        max_q_len=np.inf,
+        min_n_seq=0,
+        max_n_seq=np.inf,
+    ):
         prot_ids = self.get_uniprot_ids()
-        prot_ids = prot_ids & self.msa_sizes.get_uniprot_ids_in_size(min_q_len=min_q_len,
-                                                                     max_q_len=max_q_len,
-                                                                     min_n_seq=min_n_seq,
-                                                                     max_n_seq=max_n_seq)
+        prot_ids = prot_ids & self.msa_sizes.get_uniprot_ids_in_size(
+            min_q_len=min_q_len,
+            max_q_len=max_q_len,
+            min_n_seq=min_n_seq,
+            max_n_seq=max_n_seq,
+        )
         df_index = None
         p_corr_list = []
         for prot_id in prot_ids:
@@ -468,10 +534,12 @@ class ProteomeCorrelation:
         p_corr_array = np.stack(p_corr_list)
         # TODO Fix NaN values when including small msas, problem probably in computation
         # TODO return the following DataFrame and do plotting somewhere else
-        p_corr_mean = pd.DataFrame(np.mean(p_corr_array, axis=0), index=df_index[0], columns=df_index[1])
+        p_corr_mean = pd.DataFrame(
+            np.mean(p_corr_array, axis=0), index=df_index[0], columns=df_index[1]
+        )
 
-        fig_path = Path(data_dir) / f'{name}_mean_pearson_corr.png'
-        sns.set_style('whitegrid')
+        fig_path = Path(data_dir) / f"{name}_mean_pearson_corr.png"
+        sns.set_style("whitegrid")
         mask = np.triu(np.ones_like(p_corr_mean, dtype=bool))
         cmap = sns.diverging_palette(230, 20, as_cmap=True)
         p = sns.heatmap(p_corr_mean, annot=True, mask=mask, cmap=cmap, vmin=-1, vmax=1)

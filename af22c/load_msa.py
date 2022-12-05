@@ -23,22 +23,25 @@ from collections import defaultdict
 
 from af22c.utils import warn_once
 
-MsaMatchAttribs = namedtuple("MsaMatchAttribs", [
-    "target_id",
-    "aln_score",
-    "seq_identity",
-    "eval",
-    "qstart",
-    "qend",
-    "qlen",
-    "tstart",
-    "tend",
-    "tlen",
-])
+MsaMatchAttribs = namedtuple(
+    "MsaMatchAttribs",
+    [
+        "target_id",
+        "aln_score",
+        "seq_identity",
+        "eval",
+        "qstart",
+        "qend",
+        "qlen",
+        "tstart",
+        "tend",
+        "tlen",
+    ],
+)
 
 
 # Generate translation table for lowercase removal
-LOWERCASE_DEL_TABLE = str.maketrans('', '', string.ascii_lowercase)
+LOWERCASE_DEL_TABLE = str.maketrans("", "", string.ascii_lowercase)
 
 
 @dataclass
@@ -46,6 +49,7 @@ class MsaMatch:
     """
     MsaMatch object containing the parsed header field in attribs, the original sequence in orig_seq    and the sequence without insertions.
     """
+
     attribs: MsaMatchAttribs
     orig_seq: Seq
     aligned_seq: Seq = field(init=False)
@@ -72,6 +76,7 @@ class MultipleSeqAlign:
     This class manages MSAs.
     Insertions are removed from matches upon loading.
     """
+
     query_id: str
     query_seq: Seq
     matches: list[MsaMatch]
@@ -110,15 +115,18 @@ class MultipleSeqAlign:
         for prot_id, seqs in seqs_by_id.items():
             if len(seqs) > 1:
                 n_dupl += 1
-                seqs_string = '\n'.join(seqs)
-                logging.info(f"The ID {prot_id} appears more than once with these sequences:\n"
-                             f"{seqs_string}")
+                seqs_string = "\n".join(seqs)
+                logging.info(
+                    f"The ID {prot_id} appears more than once with these sequences:\n"
+                    f"{seqs_string}"
+                )
         if n_dupl:
-            logging.info(f"In total {n_dupl} of {len(seqs_by_id)} IDs occur more than once!")
+            logging.info(
+                f"In total {n_dupl} of {len(seqs_by_id)} IDs occur more than once!"
+            )
         else:
             logging.info(f"No duplicates found!")
         return n_dupl
-
 
 
 def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
@@ -127,15 +135,17 @@ def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
     query = seqs[0]  # first sequence is the query sequence
     matches = []
     logging.info("loading MSA")
-    for idx, seq in tqdm(enumerate(seqs[1:]), total=len(seqs)-1):
+    for idx, seq in tqdm(enumerate(seqs[1:]), total=len(seqs) - 1):
         raw_attribs = seq.description.split("\t")
         # TODO(johannes): Sometimes (for instance in Q9A7K5.a3m) the MSA file contains the same (presumable) query
         # sequence at least twice. What purpose does this serve? The code below currently skips these duplications, but
         # this is probably just wrong behavior.
         if len(raw_attribs) != len(MsaMatchAttribs._fields):
-            logging.warning(f"a3m file contains a match at index {idx} (of {len(seqs)} matches) that contains not the "
-                            f"required (={len(MsaMatchAttribs._fields)}) number of fields: {len(raw_attribs)}. "
-                            f"match description: \"{seq.description}\"")
+            logging.warning(
+                f"a3m file contains a match at index {idx} (of {len(seqs)} matches) that contains not the "
+                f"required (={len(MsaMatchAttribs._fields)}) number of fields: {len(raw_attribs)}. "
+                f'match description: "{seq.description}"'
+            )
             continue
 
         attribs = MsaMatchAttribs(*raw_attribs)
@@ -174,6 +184,7 @@ def get_n_eff(query, matches: list[MsaMatch], theta_id=0.2) -> int:
         n_eff += pi_s
     return n_eff
 
+
 def seq_identity_vectorized(msa):
     # Prepare msa for vector operations.
     msa_vec = np.array([list(seq) for seq in msa])
@@ -181,7 +192,9 @@ def seq_identity_vectorized(msa):
     # Compute the number of identical residues for all pairs once
     # and build an upper right triangle matrix from it.
     n_ident_res = np.zeros((len(msa), len(msa)))
-    for i, s in tqdm(enumerate(msa_vec), desc='Compute n_ident_res (s/it decreasing)', total=len(msa)):
+    for i, s in tqdm(
+        enumerate(msa_vec), desc="Compute n_ident_res (s/it decreasing)", total=len(msa)
+    ):
         # For each sequence, count the number of identical residues in all following sequences.
         n_ident_res[i, i:] = np.sum(msa_vec[i:] == s, axis=1)
 
@@ -243,9 +256,9 @@ def seq_identity_parallel(msa):
         #  Beware, with the current batching early iterations are slower than later ones.
         #  This could be changed by shuffling and then reordering.
         logging.info(f" mapping one-against-many to {n_batches} jobs")
-        batched_n_ident_res_list = list(tqdm(
-            ppe.map(batched_one_against_many_res_id, pairwise_input)
-        ))
+        batched_n_ident_res_list = list(
+            tqdm(ppe.map(batched_one_against_many_res_id, pairwise_input))
+        )
 
         # TODO The following generation of the full matrix from the upper triangle matrix is another bottleneck.
         #  We should speed it up for computing bigger MSAs.
@@ -281,7 +294,7 @@ def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
     logging.info(" counting gaps...")
     for c in tqdm(range(len(query)), total=len(query)):
         for i, m in enumerate(msa):
-            n_non_gaps[c] += int(m[c] != '-') * inv_n_eff_weights[i]
+            n_non_gaps[c] += int(m[c] != "-") * inv_n_eff_weights[i]
     return n_non_gaps
 
 
@@ -292,7 +305,7 @@ def get_depth_naive(query, matches: list[MsaMatch]):
     logging.info(" counting gaps...")
     for c in tqdm(range(len(query)), total=len(query)):
         for i, m in enumerate(msa):
-            n_non_gaps[c] += int(m[c] != '-')
+            n_non_gaps[c] += int(m[c] != "-")
     return n_non_gaps
 
 
@@ -308,7 +321,9 @@ def calc_neff_by_id(tar_filename: str, uniprot_id: str) -> list[float]:
     """Calculate Neff scores for a single protein (by its UniProt identifier)."""
 
     if tar_filename.endswith(".tar.gz"):
-        warn_once(f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file")
+        warn_once(
+            f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file"
+        )
 
     # NOTE: This function expects the `tar_filename` to be in a special format to work with a generated .tar file. The
     # MSAs are expected to be in a subdirectory called `f"{proteome_name}/msas/"`.
@@ -330,7 +345,9 @@ def calc_naive_neff_by_id(tar_filename: str, uniprot_id: str) -> list[float]:
     """Calculate naive Neff scores (=count gaps in MSA) for a single protein (found by its UniProt identifier)."""
 
     if tar_filename.endswith(".tar.gz"):
-        warn_once(f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file")
+        warn_once(
+            f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file"
+        )
 
     # NOTE: This function expects the `tar_filename` to be in a special format to work with a generated .tar file. The
     # MSAs are expected to be in a subdirectory called `f"{proteome_name}/msas/"`.
@@ -366,7 +383,9 @@ def apply_by_id(func: Callable, tar_filename: str, uniprot_id: str):
     Apply func to an .a3m-file stored in the given tar. The .a3m-file is identified by uniprot_id.
     """
     if tar_filename.endswith(".tar.gz"):
-        warn_once(f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file")
+        warn_once(
+            f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file"
+        )
 
     # NOTE: This function expects the `tar_filename` to be in a special format to work with a generated .tar file. The
     # MSAs are expected to be in a subdirectory called `f"{proteome_name}/msas/"`.

@@ -13,7 +13,10 @@ from Bio.PDB.PDBParser import PDBParser
 from concurrent.futures import ProcessPoolExecutor
 
 
-UNIPROT_ID_EXTRACTOR = re.compile(".*(af|AF)-(?P<uniprotid>([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(-(f|F)[0-9]+)?)-model_v[0-9]+\.pdb\.gz")
+UNIPROT_ID_EXTRACTOR = re.compile(
+    ".*(af|AF)-(?P<uniprotid>([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(-(f|F)[0-9]+)?)-model_v[0-9]+\.pdb\.gz"
+)
+
 
 def get_structure_from_lines(pdb_parser, id, pdb_lines):
     """Emulate the `get_structure` method of the `PDBParser` to process an in-memory PDB file since the function only
@@ -65,7 +68,9 @@ def extract_plddts_from_pdb_gz(filename):
 
         matches = UNIPROT_ID_EXTRACTOR.match(filename)
         if not matches:
-            raise Exception(f"was not able to extract UniProt ID from filename {filename}")
+            raise Exception(
+                f"was not able to extract UniProt ID from filename {filename}"
+            )
 
         uniprot_id = matches.group("uniprotid")
         return uniprot_id, pdb_plddts
@@ -88,12 +93,18 @@ def extract_plddts_from_pdb_gzs(pdb_gzs_path):
     """Extract pLDDT scores from each compressed PDB file (.pdb.gz) inside a given directory `pdb_gzs_path` and
     return a `dict` mapping from UniProt identifier to a `list` of per-residue pLDDT scores (`float` from 0 to 100)."""
     filenames = os.listdir(pdb_gzs_path)
-    filenames = map(lambda filename: os.path.join(pdb_gzs_path, filename), filenames)  # reconstruct full path
+    filenames = map(
+        lambda filename: os.path.join(pdb_gzs_path, filename), filenames
+    )  # reconstruct full path
     filenames = list(filenames)
 
     # since the `extract_plddts_from_pdb_gz` function is CPU-bound, try to run it in parallel.
     with ProcessPoolExecutor() as ppe:
-        return dict(tqdm.tqdm(ppe.map(extract_plddts_from_pdb_gz, filenames), total=len(filenames)))
+        return dict(
+            tqdm.tqdm(
+                ppe.map(extract_plddts_from_pdb_gz, filenames), total=len(filenames)
+            )
+        )
 
 
 if __name__ == "__main__":
@@ -126,7 +137,9 @@ if __name__ == "__main__":
 
             # write pLDDT scores to .json
             plddts_path = os.path.join(data_dir, name + "_plddts.json")
-            print(f" writing output file to {plddts_path} containing pLDDT scores for {len(proteome_plddts)} proteins")
+            print(
+                f" writing output file to {plddts_path} containing pLDDT scores for {len(proteome_plddts)} proteins"
+            )
             with open(plddts_path, "w") as outfile:
                 json.dump(proteome_plddts, outfile)
             print(" done!")

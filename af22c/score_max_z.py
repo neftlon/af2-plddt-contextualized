@@ -10,7 +10,7 @@ PROT_SEQ_AAS = list("ACDEFGHIKLMNPQRSTVWY")
 def calc_max_z(proteome_filename: str, uniprot_id: str) -> list[float]:
     """
     Calculate the maxZ score introduced by [1].
-    
+
     [1] Ahola, V., Aittokallio, T., Vihinen, M. et al. A statistical score for assessing the quality of multiple
     sequence alignments. BMC Bioinformatics 7, 484 (2006). https://doi.org/10.1186/1471-2105-7-484
     """
@@ -23,8 +23,12 @@ def calc_max_z(proteome_filename: str, uniprot_id: str) -> list[float]:
 
     C = np.eye(J)  # similarity matrix (TODO: does this need to come from a PSSM?)
 
-    beta0 = np.zeros(J)  # TODO: find this, "degree of positional conservation w.r.t. a predefined background distribution"
-    covariance0 = np.zeros((J, J))  # TODO: implement this: "equation (3) with beta_j replaced by beta_j0"
+    beta0 = np.zeros(
+        J
+    )  # TODO: find this, "degree of positional conservation w.r.t. a predefined background distribution"
+    covariance0 = np.zeros(
+        (J, J)
+    )  # TODO: implement this: "equation (3) with beta_j replaced by beta_j0"
 
     Zs = np.zeros(len(msa.query_seq))
     for colidx in range(len(msa.query_seq)):
@@ -35,7 +39,9 @@ def calc_max_z(proteome_filename: str, uniprot_id: str) -> list[float]:
             sym_freqs[sym] += 1
 
         n = sum(sym_freqs.values())  # actual number of symbols observed, N - gaps
-        beta_mls = [sym_freq / n for sym_freq in sym_freqs]  # maximum likelihood estimator for beta vector
+        beta_mls = [
+            sym_freq / n for sym_freq in sym_freqs
+        ]  # maximum likelihood estimator for beta vector
         covariance = ()  # TODO: this matrix should be the same for each column
 
         # calculate actual Z scores
@@ -46,4 +52,3 @@ def calc_max_z(proteome_filename: str, uniprot_id: str) -> list[float]:
         Z = np.max(Zis)
         Zs[colidx] = Z
     return Zs.tolist()
-

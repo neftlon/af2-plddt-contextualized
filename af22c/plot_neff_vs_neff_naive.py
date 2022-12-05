@@ -11,7 +11,9 @@ from af22c.load_msa import calc_naive_neff_by_id
 from af22c.neff_cache_or_calc import NeffCacheOrCalc
 
 
-def plot_neff_vs_neff_naive(ax, naive_neff_scores: list[float], neff_scores: list[float], plot_difference=True):
+def plot_neff_vs_neff_naive(
+    ax, naive_neff_scores: list[float], neff_scores: list[float], plot_difference=True
+):
     """
     Create a plot on `ax` that shows the difference between the naive Neff score calculation and an actual calculation.
 
@@ -29,7 +31,9 @@ def plot_neff_vs_neff_naive(ax, naive_neff_scores: list[float], neff_scores: lis
 
     # combine in dataframe for seaborn
     df = pd.DataFrame(
-        np.array(features).transpose(),  # wants one features per column, not per row -> transpose
+        np.array(
+            features
+        ).transpose(),  # wants one features per column, not per row -> transpose
         columns=feature_names,
     )
 
@@ -42,7 +46,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog=__name__,
         description="Plot the difference between an actual Neff score calculation and a naive one (only count gaps in "
-                    "an MSA column)."
+        "an MSA column).",
     )
     parser.add_argument(
         "-f",
@@ -60,14 +64,14 @@ def main():
         "-c",
         "--cache-file",
         help="Select a cache file for precomputed Neff scores",
-        default="data/UP000005640_9606_neff_cache.tar"
+        default="data/UP000005640_9606_neff_cache.tar",
     )
     out_default_path = "data/plot_neff_vs_neff_naive_PROTID.png"
     parser.add_argument(
         "-o",
         "--out-file",
         help=f"Location for the plotted image. If no location is specified, the default path `{out_default_path}` is "
-             f"taken, where `PROTID` is replaced by the specified UniProt identifier.",
+        f"taken, where `PROTID` is replaced by the specified UniProt identifier.",
         default=out_default_path,
     )
     args = parser.parse_args()

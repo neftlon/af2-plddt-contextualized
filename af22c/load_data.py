@@ -40,7 +40,9 @@ def compute_proteome_wide_corr(path, plddts, seth_preds, shared_prot_ids):
     for prot_id in shared_prot_ids:
         if len(plddts[prot_id]) != len(seth_preds[prot_id]):
             n_mismatch_res = n_mismatch_res + 1
-            mismatched_prots.append((prot_id, len(plddts[prot_id]), len(seth_preds[prot_id])))
+            mismatched_prots.append(
+                (prot_id, len(plddts[prot_id]), len(seth_preds[prot_id]))
+            )
     st.table(mismatched_prots)
 
     # Initialize stat vectors
@@ -64,13 +66,16 @@ def compute_proteome_wide_corr(path, plddts, seth_preds, shared_prot_ids):
 
         i = i + 1
 
-    proteome_wide_stats_dict = {"pearson": pearson.tolist(),
-                                "spearman_rho": spearman_rho.tolist(),
-                                "spearman_pval": spearman_pval.tolist(),
-                                "n_mismatch_res": n_mismatch_res}
+    proteome_wide_stats_dict = {
+        "pearson": pearson.tolist(),
+        "spearman_rho": spearman_rho.tolist(),
+        "spearman_pval": spearman_pval.tolist(),
+        "n_mismatch_res": n_mismatch_res,
+    }
     with open(path, "w") as outfile:
         json.dump(proteome_wide_stats_dict, outfile)
     return proteome_wide_stats_dict
+
 
 def load_proteome_wide_corr(path, plddts, seth_preds, shared_prot_ids):
     try:
@@ -90,9 +95,9 @@ if __name__ == "__main__":
 
     sns.set_theme(context="paper", style="whitegrid", palette="deep")
 
-    data_dir = './data'
+    data_dir = "./data"
     proteome_name = "UP000005640_9606_HUMAN_v3"
-    proteome_wide_stats_ending = '_proteome_stats.json'
+    proteome_wide_stats_ending = "_proteome_stats.json"
     plddts_fltrd_ending = "_plddts_fltrd.json"
     plddts_filename = proteome_name + plddts_fltrd_ending
     seth_preds_filename = "Human_SETH_preds.txt"
@@ -113,18 +118,24 @@ if __name__ == "__main__":
 
     with st.sidebar:
         """## Parameters"""
-        prot_id = st.selectbox("Which protein would you like to look at?", shared_prot_ids)
+        prot_id = st.selectbox(
+            "Which protein would you like to look at?", shared_prot_ids
+        )
         prot_plddts = np.array(plddts[prot_id])
         prot_pred_dis = np.array(seth_preds[prot_id])
         prot_neffs = np.array(neff_src.get_neffs(prot_id))
-        prot_neffs_naive = np.array(calc_naive_neff_by_id(neff_src.proteome_filename, prot_id))
+        prot_neffs_naive = np.array(
+            calc_naive_neff_by_id(neff_src.proteome_filename, prot_id)
+        )
         proteome_wide = st.checkbox("Show proteome wide analysis")
 
     # Construct DataFrame for visualization with seaborn
     df = pd.DataFrame(
-            np.array([prot_plddts, prot_pred_dis, prot_neffs, prot_neffs_naive]).transpose(),
-            columns=["pLDDT score", "pred. disorder", "Neff", "Neff naive"],
-        )
+        np.array(
+            [prot_plddts, prot_pred_dis, prot_neffs, prot_neffs_naive]
+        ).transpose(),
+        columns=["pLDDT score", "pred. disorder", "Neff", "Neff naive"],
+    )
 
     """## Per-protein metrics"""
 
@@ -142,10 +153,8 @@ if __name__ == "__main__":
 
     with col_pred_dis:
         """### Pred. dis."""
-        st.metric(f"mean predicted disorder",
-                  f"{np.mean(prot_pred_dis):0.04f}")
-        st.metric(f"std predicted disorder",
-                  f"{np.std(prot_pred_dis):0.04f}")
+        st.metric(f"mean predicted disorder", f"{np.mean(prot_pred_dis):0.04f}")
+        st.metric(f"std predicted disorder", f"{np.std(prot_pred_dis):0.04f}")
         fig, ax = plt.subplots()
         fig.set_size_inches(0.5, 2.5)
         ax.set_ylim(-20, 20)
@@ -154,10 +163,8 @@ if __name__ == "__main__":
 
     with col_neff:
         """### Neff"""
-        st.metric(f"mean Neff",
-                  f"{int(np.mean(prot_neffs))}")
-        st.metric(f"std Neff",
-                  f"{int(np.std(prot_neffs))}")
+        st.metric(f"mean Neff", f"{int(np.mean(prot_neffs))}")
+        st.metric(f"std Neff", f"{int(np.std(prot_neffs))}")
         fig, ax = plt.subplots()
         fig.set_size_inches(0.5, 2.5)
         sns.boxplot(data=df, y="Neff", color="green")
@@ -165,23 +172,25 @@ if __name__ == "__main__":
 
     with col_neff_naive:
         """### Neff naive"""
-        st.metric(f"mean Neff naive",
-                  f"{int(np.mean(prot_neffs_naive))}")
-        st.metric(f"std Neff naive",
-                  f"{int(np.std(prot_neffs_naive))}")
+        st.metric(f"mean Neff naive", f"{int(np.mean(prot_neffs_naive))}")
+        st.metric(f"std Neff naive", f"{int(np.std(prot_neffs_naive))}")
         fig, ax = plt.subplots()
         fig.set_size_inches(0.5, 2.5)
         sns.boxplot(data=df, y="Neff naive", color="brown")
         st.pyplot(fig)
 
     """## Per-residue scores"""
-    fig, (ax_plddt, ax_pred_dis, ax_neff, ax_neff_naive) = plt.subplots(nrows=4, figsize=(8, 8))
+    fig, (ax_plddt, ax_pred_dis, ax_neff, ax_neff_naive) = plt.subplots(
+        nrows=4, figsize=(8, 8)
+    )
     ax_plddt.set_xlim(0, len(prot_plddts))
     ax_plddt.set_ylim(0, 100)
     sns.lineplot(data=df, x=df.index, y="pLDDT score", ax=ax_plddt)
     ax_pred_dis.set_xlim(0, len(prot_pred_dis))
     ax_pred_dis.set_ylim(-20, 20)
-    sns.lineplot(data=df, x=df.index, y="pred. disorder", ax=ax_pred_dis, color="orange")
+    sns.lineplot(
+        data=df, x=df.index, y="pred. disorder", ax=ax_pred_dis, color="orange"
+    )
     ax_neff.set_xlim(0, len(prot_neffs))
     sns.lineplot(data=df, x=df.index, y="Neff", ax=ax_neff, color="green")
     ax_neff_naive.set_xlim(0, len(prot_neffs_naive))
@@ -247,9 +256,13 @@ if __name__ == "__main__":
         spearman_corr()
 
     if proteome_wide:
-        proteome_stats_path = os.path.join(data_dir, proteome_name + proteome_wide_stats_ending)
-        proteome_wide_stats_dict = load_proteome_wide_corr(proteome_stats_path, plddts, seth_preds, shared_prot_ids)
-        n_mismatch_res = proteome_wide_stats_dict.pop('n_mismatch_res')
+        proteome_stats_path = os.path.join(
+            data_dir, proteome_name + proteome_wide_stats_ending
+        )
+        proteome_wide_stats_dict = load_proteome_wide_corr(
+            proteome_stats_path, plddts, seth_preds, shared_prot_ids
+        )
+        n_mismatch_res = proteome_wide_stats_dict.pop("n_mismatch_res")
         proteome_wide_stats = pd.DataFrame(proteome_wide_stats_dict)
 
         """
@@ -260,10 +273,14 @@ if __name__ == "__main__":
         col_left, col_right = st.columns(2)
         with col_left:
             """### Pearson"""
-            st.metric("mean Pearson correlation",
-                      f"{np.median(proteome_wide_stats['pearson']):0.04f}")
-            st.metric("std Pearson correlation",
-                      f"{np.std(proteome_wide_stats['pearson']):0.04f}")
+            st.metric(
+                "mean Pearson correlation",
+                f"{np.median(proteome_wide_stats['pearson']):0.04f}",
+            )
+            st.metric(
+                "std Pearson correlation",
+                f"{np.std(proteome_wide_stats['pearson']):0.04f}",
+            )
 
             fig, ax = plt.subplots()
             fig.set_size_inches(1, 4)
@@ -273,10 +290,14 @@ if __name__ == "__main__":
 
         with col_right:
             """### Spearman"""
-            st.metric("mean Spearman correlation",
-                      f"{np.median(proteome_wide_stats['spearman_rho']):0.04f}")
-            st.metric("std Spearman correlation",
-                      f"{np.std(proteome_wide_stats['spearman_rho']):0.04f}")
+            st.metric(
+                "mean Spearman correlation",
+                f"{np.median(proteome_wide_stats['spearman_rho']):0.04f}",
+            )
+            st.metric(
+                "std Spearman correlation",
+                f"{np.std(proteome_wide_stats['spearman_rho']):0.04f}",
+            )
 
             fig, ax = plt.subplots()
             ax.set_ylim(-1, 1)
@@ -284,10 +305,14 @@ if __name__ == "__main__":
             sns.boxplot(data=proteome_wide_stats, y="spearman_rho")
             st.pyplot(fig)
 
-            st.metric("mean Spearman p-value",
-                      f"{np.median(proteome_wide_stats['spearman_pval']):0.04f}")
-            st.metric("std Spearman p-value",
-                      f"{np.std(proteome_wide_stats['spearman_pval']):0.04f}")
+            st.metric(
+                "mean Spearman p-value",
+                f"{np.median(proteome_wide_stats['spearman_pval']):0.04f}",
+            )
+            st.metric(
+                "std Spearman p-value",
+                f"{np.std(proteome_wide_stats['spearman_pval']):0.04f}",
+            )
 
             fig, ax = plt.subplots()
             ax.set_ylim(0, 1)
@@ -301,15 +326,25 @@ if __name__ == "__main__":
         col_left, col_right = st.columns(2)
         with col_left:
             n_missing_seth = len(plddts_ids - seth_preds_ids)
-            st.metric("UniProt identifiers only appearing in \npLDDT scores", n_missing_seth)
+            st.metric(
+                "UniProt identifiers only appearing in \npLDDT scores", n_missing_seth
+            )
 
             n_missing_af2 = len(seth_preds_ids - plddts_ids)
-            st.metric("UniProt identifiers only appearing in \nSETH predictions", n_missing_af2)
+            st.metric(
+                "UniProt identifiers only appearing in \nSETH predictions",
+                n_missing_af2,
+            )
 
-            st.metric("Number of proteins disregarded due to mismatch in number of residues:", n_mismatch_res)
+            st.metric(
+                "Number of proteins disregarded due to mismatch in number of residues:",
+                n_mismatch_res,
+            )
 
         with col_right:
             num_prot_ids = len(plddts_ids | seth_preds_ids)
             st.metric("Total number of UniProt identifiers", num_prot_ids)
-            sum_disregarded = num_prot_ids - n_missing_af2 - n_missing_seth - n_mismatch_res
+            sum_disregarded = (
+                num_prot_ids - n_missing_af2 - n_missing_seth - n_mismatch_res
+            )
             st.metric("Number of used UniProt identifiers", sum_disregarded)

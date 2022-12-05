@@ -39,6 +39,7 @@ class NeffCacheOrCalc:
     neffs_for_protein_path = f"{proteome_name}/neffs/{uniprot_id}.json"
     ```
     """
+
     proteome_filename: str
     cache_filename: str
 
@@ -65,8 +66,10 @@ class NeffCacheOrCalc:
             return None  # TODO: do we need a different return type for this?
 
         if self.cache_filename.endswith(".gz"):
-            warn_once(f"cache file {self.cache_filename} is compressed. this may dramatically slow down processing. "
-                      f"consider extracting it to a .tar file.")
+            warn_once(
+                f"cache file {self.cache_filename} is compressed. this may dramatically slow down processing. "
+                f"consider extracting it to a .tar file."
+            )
 
         neffs_for_protein_path = self.get_neffs_for_protein_path(uniprot_id)
         with tarfile.open(self.cache_filename) as tar:
@@ -84,7 +87,9 @@ class NeffCacheOrCalc:
         """Store Neff scores for a protein in cache file"""
         # don't try to store anything in cache, if the cache file location has not been specified
         if isinstance(self.cache_filename, NoneType):
-            warn_once(f"cannot store precomputed Neff scores for {uniprot_id}, cache file was not specified")
+            warn_once(
+                f"cannot store precomputed Neff scores for {uniprot_id}, cache file was not specified"
+            )
             return
 
         # write scores to temp file
@@ -120,13 +125,17 @@ def main():
     num_neff_files_written = 0
 
     def exit_message():
-        logging.info(f"program is shutting down, wrote {num_neff_files_written}/{len(ids_to_process)} Neff files")
+        logging.info(
+            f"program is shutting down, wrote {num_neff_files_written}/{len(ids_to_process)} Neff files"
+        )
 
     def keyboard_interrupt_handler(signum, frame):
         nonlocal keyboard_interrupt_caught
         if signum == signal.SIGINT:
             if is_in_write:
-                logging.info(f"received Ctrl-C, but program is currently writing to a file. finishing write first...")
+                logging.info(
+                    f"received Ctrl-C, but program is currently writing to a file. finishing write first..."
+                )
                 keyboard_interrupt_caught = True
             else:
                 logging.info(f"received Ctrl-C, aborting calculations...")
@@ -147,8 +156,14 @@ def main():
     with tarfile.open(neff_src.proteome_filename) as f:
         filenames = f.getnames()
         proteome_name = neff_src.get_raw_proteome_name()
-        protein_msa_files = [fn for fn in filenames if fn.startswith(f"{proteome_name}/msas/") and fn.endswith(".a3m")]
-        avail_prot_ids = [os.path.splitext(os.path.basename(fn))[0] for fn in protein_msa_files]
+        protein_msa_files = [
+            fn
+            for fn in filenames
+            if fn.startswith(f"{proteome_name}/msas/") and fn.endswith(".a3m")
+        ]
+        avail_prot_ids = [
+            os.path.splitext(os.path.basename(fn))[0] for fn in protein_msa_files
+        ]
     logging.debug(f"found {len(avail_prot_ids)} proteins to look at")
 
     # calculate which IDs are already cached
@@ -159,11 +174,17 @@ def main():
             filenames = f.getnames()
             proteome_name = neff_src.get_raw_proteome_name()
             protein_msa_files = [
-                fn for fn in filenames if fn.startswith(f"{proteome_name}/neffs/") and fn.endswith(".json")
+                fn
+                for fn in filenames
+                if fn.startswith(f"{proteome_name}/neffs/") and fn.endswith(".json")
             ]
-            cached_prot_ids = [os.path.splitext(os.path.basename(fn))[0] for fn in protein_msa_files]
+            cached_prot_ids = [
+                os.path.splitext(os.path.basename(fn))[0] for fn in protein_msa_files
+            ]
     else:
-        logging.debug("unable to find cache file, will create one when writing first list of Neff scores")
+        logging.debug(
+            "unable to find cache file, will create one when writing first list of Neff scores"
+        )
     logging.debug(f"found {len(cached_prot_ids)} proteins that are already cached")
 
     # calculate which proteins need to be cached

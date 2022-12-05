@@ -19,6 +19,4 @@ if __name__ == "__main__":
                         contents = a3m.read()
                         lines = contents.splitlines()
                         marker_count = sum(line == lines[0] for line in lines)
-                        print(f"ID \"{lines[0]}\" appears {marker_count} times")
-
-
+                        print(f'ID "{lines[0]}" appears {marker_count} times')

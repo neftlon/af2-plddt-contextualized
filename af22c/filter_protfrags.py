@@ -35,7 +35,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     logging.debug("loading proteins")
-    plddts = json.load(args.infile)  # mapping: UniProtID (per fragment) -> list of pLDDT scores
+    plddts = json.load(
+        args.infile
+    )  # mapping: UniProtID (per fragment) -> list of pLDDT scores
     result = {}  # mapping: UniProtID -> list of pLDDT scores
 
     # store per-protein fragments
@@ -53,7 +55,9 @@ if __name__ == "__main__":
             frags_by_id[uniprot_id][fn] = plddts[full_id]
         else:
             # append to result directly if the protein is not fragmented
-            assert full_id not in result, "since `plddts` is already a `dict`, the key should not appear twice!"
+            assert (
+                full_id not in result
+            ), "since `plddts` is already a `dict`, the key should not appear twice!"
             result[full_id] = plddts[full_id]
 
     # filter fragments
@@ -73,5 +77,3 @@ if __name__ == "__main__":
 
     logging.debug("dumping filtered proteins")
     json.dump(result, args.outfile)
-            
-
