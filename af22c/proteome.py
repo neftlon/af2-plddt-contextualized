@@ -188,7 +188,7 @@ class ProteomeMetric(ABC):
 @dataclass
 class ProteomePLDDTs(ProteomeMetric):
     """
-    This class manages plDDTs for whole Proteomes.
+    This class manages plDDTs for whole proteomes.
 
     The plDDTs are expected to be stored in a .json file in a dictionary by ID like:
 
@@ -199,8 +199,8 @@ class ProteomePLDDTs(ProteomeMetric):
     plddts_by_id: dict[str: list[float]]
 
     @classmethod
-    def from_file(cls, plDDT_path: str):
-        path = Path(plDDT_path)
+    def from_file(cls, plddt_path: str):
+        path = Path(plddt_path)
         with path.open() as p:
             return cls(json.load(p))
 
@@ -225,8 +225,8 @@ class ProteomeSETHPreds(ProteomeMetric):
     seth_preds_by_id: dict[str: list[float]]
 
     @classmethod
-    def from_file(cls, SETH_preds_path: str):
-        path = Path(SETH_preds_path)
+    def from_file(cls, seth_preds_path: str):
+        path = Path(seth_preds_path)
         with path.open() as p:
             lines = p.readlines()
             headers = lines[::2]
@@ -304,7 +304,7 @@ class ProteomeCorrelation:
             p_corr_list.append(p_corr.to_numpy())
         p_corr_array = np.stack(p_corr_list)
         # TODO Fix NaN values when including small msas, problem probably in computation
-        # TODO return following DataFrame and do plotting somewhere else
+        # TODO return the following DataFrame and do plotting somewhere else
         p_corr_mean = pd.DataFrame(np.mean(p_corr_array, axis=0), index=df_index[0], columns=df_index[1])
 
         fig_path = self.msas.data_dir / f'{self.msas.name}_mean_pearson_corr.png'
