@@ -80,14 +80,16 @@ class Proteome:
                             & (msa_sizes["sequence_count"] >= min_n_seq)]
         return set(in_size["uniprot_id"])
 
-    def _store_neffs(self, path, neffs):
+    @staticmethod
+    def _store_neffs(path, neffs):
         # NOTE: since Neff scores usually are in the area of 1k to 10k, rounding to `int` here should be sufficient
         neffs = list(map(lambda f: round(f), neffs.tolist()))
 
         with path.open(mode='w+') as p:
             json.dump(neffs, p)
 
-    def _load_neffs(self, path: Path):
+    @staticmethod
+    def _load_neffs(path: Path):
         with path.open() as p:
             return json.load(p)
 
@@ -112,6 +114,7 @@ class Proteome:
             msa = self.get_msa_by_id(uniprot_id)
             neffs = msa.compute_neff_naive()
             self._store_neffs(neff_path, neffs)
+
     def get_neff_by_id(self, uniprot_id: str) -> list:
         neff_path = self.neff_dir / f"{uniprot_id}.json"
         try:
@@ -166,6 +169,7 @@ class Proteome:
         p.savefig(fig_path)
         logging.info(f"saved figure to {fig_path}")
 
+
 @dataclass
 class ProteomeMetric(ABC):
     # metric_by_id: dict[str: list[float] | tuple[float, float]]
@@ -180,7 +184,7 @@ class ProteomeMetric(ABC):
     @abstractmethod
     def __getitem__(self, item: str) -> list[float]:
         """
-        Item is a uniprot id. The returned list of floats contains the metric for each AA in the specified protein.
+        Item is an uniprot id. The returned list of floats contains the metric for each AA in the specified protein.
         """
         ...
 
