@@ -51,13 +51,9 @@ class ProteomeMSAs(Proteome):
     msa_path: Path  # MSA path (directory containing MSAs)
 
     @classmethod
-    def from_directory(cls, path: str, data_dir: str = 'data'):
-        proteome_path = Path(path)
-        return cls(proteome_path.name,
-                   # proteome_path,
-                   proteome_path / 'msas',
-                   # Path(data_dir)
-                   )
+    def from_directory(cls, proteome_path: str):
+        proteome_path = Path(proteome_path)
+        return cls(proteome_path.name, proteome_path / 'msas')
 
     def __getitem__(self, uniprot_id: str) -> MultipleSeqAlign:
         return MultipleSeqAlign.from_a3m(self.msa_path / f'{uniprot_id}.a3m')
@@ -94,7 +90,8 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
             n_seq, q_len = size["sequence_count"], size["query_length"]
             if not isinstance(n_seq, int) or not isinstance(q_len, int):
                 raise ValueError(f"The type of the dimensions is ({type(n_seq)}, {type(q_len)} and not (int, int). "
-                                 f"Maybe the uniprot_id {uniprot_id} appears multiple times in the msa sizes .csv file?")
+                                 f"Maybe the uniprot_id {uniprot_id} appears multiple times in the "
+                                 f"msa sizes .csv file?")
             return n_seq, q_len
 
         def get_uniprot_ids(self) -> set[str]:
@@ -154,7 +151,8 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
                     super().load()  # reload CSV for future calls to __getitem__
                 else:
                     logging.warning(
-                        f"Computed MSA size for {uniprot_id}, but did not store changes in {self.filepath} since the write_csv_on_demand flag was set to False"
+                        f"Computed MSA size for {uniprot_id}, but did not store changes in {self.filepath} "
+                        f"since the write_csv_on_demand flag was set to False"
                     )
                 return q_len, n_seq
 
