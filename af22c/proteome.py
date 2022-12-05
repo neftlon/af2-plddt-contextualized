@@ -58,6 +58,7 @@ class Proteome:
         if mode == 'msa_available':
             search_dir = self.msa_path
             suffix = ".a3m"
+        # TODO Implemented as ProteomeMetric, remove!
         elif mode == 'neff_available':
             search_dir = self.neff_dir
             suffix = ".json"
@@ -72,7 +73,7 @@ class Proteome:
         return {f.stem for f in filenames if f.suffix == suffix}
 
     def get_uniprot_ids_in_size(self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf) -> set[str]:
-        # TODO the behaviour of loading from msa_sizes and not from available MSAs could be confusing. Fix!
+        # TODO Implemented as ProteomeMetric, remove!
         msa_sizes = self.get_msa_sizes()
         in_size = msa_sizes[(msa_sizes["query_length"] <= max_q_len)
                             & (msa_sizes["sequence_count"] <= max_n_seq)
@@ -90,6 +91,7 @@ class Proteome:
 
     @staticmethod
     def _load_neffs(path: Path):
+        # TODO Implemented as ProteomeMetric, remove!
         with path.open() as p:
             return json.load(p)
 
@@ -116,6 +118,7 @@ class Proteome:
             self._store_neffs(neff_path, neffs)
 
     def get_neff_by_id(self, uniprot_id: str) -> list:
+        # TODO Implemented as ProteomeMetric, remove!
         neff_path = self.neff_dir / f"{uniprot_id}.json"
         try:
             return self._load_neffs(neff_path)
@@ -124,6 +127,7 @@ class Proteome:
             raise FileNotFoundError(f"Neff file for {uniprot_id} not found. Compute Neffs first!")
 
     def get_neff_naive_by_id(self, uniprot_id: str) -> list:
+        # TODO Implemented as ProteomeMetric, remove!
         neff_naive_path = self.neff_naive_dir / f"{uniprot_id}.json"
         try:
             return self._load_neffs(neff_naive_path)
@@ -152,6 +156,7 @@ class Proteome:
         logging.info(f"wrote MSA sizes to {self.msa_sizes_path}")
 
     def get_msa_sizes(self) -> pd.DataFrame:
+        # TODO Implemented as ProteomeMetric, remove!
         if self.msa_sizes_path.is_file():
             logging.info(f"msa size file found, loading ...")
             return pd.read_csv(self.msa_sizes_path)
@@ -170,9 +175,7 @@ class Proteome:
         logging.info(f"saved figure to {fig_path}")
 
 
-@dataclass
 class ProteomeMetric(ABC):
-    # metric_by_id: dict[str: list[float] | tuple[float, float]]
     @abstractmethod
     def get_uniprot_ids(self) -> set[str]:
         """
@@ -187,6 +190,78 @@ class ProteomeMetric(ABC):
         Item is an uniprot id. The returned list of floats contains the metric for each AA in the specified protein.
         """
         ...
+
+
+@dataclass
+class ProteomeMSASizes(ProteomeMetric):
+    msa_sizes_path: Path
+    msa_sizes: pd.DataFrame = field(init=False)
+
+    def __post_init__(self):
+        self.msa_sizes = pd.read_csv(self.msa_sizes_path)
+
+    @classmethod
+    def from_file(cls, path: str):
+        return cls(msa_sizes_path=Path(path))
+
+    # TODO Add from_proteome factory and computation methods for computing the metric if it is not yet stored.
+    #  Computation methods should work both on a per ID basis and on the whole proteome.
+
+    def get_uniprot_ids(self) -> set[str]:
+        return set(self.msa_sizes["uniprot_id"])
+
+    def __getitem__(self, item) -> tuple[int, int]:
+        """
+        The item is an uniprot id, the returned tuple contains the number of sequences in the MSA
+        and the length of the query sequence. I. e.:
+        (n_sequences, len_query)
+        """
+        size = self.msa_sizes[self.msa_sizes["uniprot_id"] == item]
+        n_seq, q_len = size["sequence_count"], size["query_length"]
+        if not isinstance(n_seq, int) or not isinstance(q_len, int):
+            raise ValueError(f"The type of the dimensions is ({type(n_seq)}, {type(q_len)} and not (int, int). "
+                             f"Maybe the uniprot_id {item} appears multiple times in the msa sizes .csv file?")
+        return n_seq, q_len
+
+    def get_uniprot_ids_in_size(self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf) -> set[str]:
+        in_size = self.msa_sizes[(self.msa_sizes["query_length"] <= max_q_len)
+                                 & (self.msa_sizes["sequence_count"] <= max_n_seq)
+                                 & (self.msa_sizes["query_length"] >= min_q_len)
+                                 & (self.msa_sizes["sequence_count"] >= min_n_seq)]
+        return set(in_size["uniprot_id"])
+
+    def get_msa_sizes(self) -> pd.DataFrame:
+        return self.msa_sizes
+
+
+@dataclass
+class ProteomeNeffs(ProteomeMetric):
+    neff_dir: Path
+
+    @classmethod
+    def from_folder(cls, path: str):
+        cls(neff_dir=Path(path))
+
+    # TODO Add from_proteome factory and computation methods for computing the metric if it is not yet stored.
+    #  Computation methods should work both on a per ID basis and on the whole proteome.
+
+    def get_uniprot_ids(self) -> set[str]:
+        # Search path and extract IDs from filenames
+        filenames = [f for f in self.neff_dir.iterdir() if f.is_file()]
+        return {f.stem for f in filenames if f.suffix == ".json"}
+
+    def __getitem__(self, item):
+        neff_path = self.neff_dir / f"{item}.json"
+        try:
+            return self._load_neffs(neff_path)
+        except FileNotFoundError:
+            # TODO compute and store Neff if not found
+            raise FileNotFoundError(f"Neff file for {item} not found. Compute Neffs first!")
+
+    @staticmethod
+    def _load_neffs(path: Path):
+        with path.open() as p:
+            return json.load(p)
 
 
 @dataclass
