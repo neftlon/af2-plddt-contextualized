@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Generator
 import json
+from abc import abstractmethod, ABC
 
 from af22c.load_msa import MultipleSeqAlign
 
@@ -165,9 +166,27 @@ class Proteome:
         p.savefig(fig_path)
         logging.info(f"saved figure to {fig_path}")
 
+@dataclass
+class ProteomeMetric(ABC):
+    # metric_by_id: dict[str: list[float] | tuple[float, float]]
+    @abstractmethod
+    def get_uniprot_ids(self) -> set[str]:
+        """
+        Get all uniprot ids for which the metric is available without further computation.
+        I.e. it can be loaded from disk.
+        """
+        ...
+
+    @abstractmethod
+    def __getitem__(self, item: str) -> list[float]:
+        """
+        Item is a uniprot id. The returned list of floats contains the metric for each AA in the specified protein.
+        """
+        ...
+
 
 @dataclass
-class ProteomePLDDTs:
+class ProteomePLDDTs(ProteomeMetric):
     """
     This class manages plDDTs for whole Proteomes.
 
@@ -177,7 +196,7 @@ class ProteomePLDDTs:
     plDDTs = {prot_id1: [...], prot_id2: [...]}
     ```
     """
-    plddts: dict[str: list[float]]
+    plddts_by_id: dict[str: list[float]]
 
     @classmethod
     def from_file(cls, plDDT_path: str):
@@ -185,18 +204,15 @@ class ProteomePLDDTs:
         with path.open() as p:
             return cls(json.load(p))
 
-    def get_uniprot_ids(self) -> set[str]:
-        return set(self.plddts.keys())
-
-    def get_plDDTs_by_id(self, uniprot_id: str) -> list[float]:
-        return self.plddts[uniprot_id]
+    def get_uniprot_ids(self):
+        return set(self.plddts_by_id.keys())
 
     def __getitem__(self, item):
-        return self.get_plDDTs_by_id(item)
+        return self.plddts_by_id[item]
 
 
 @dataclass
-class ProteomeSETHPreds:
+class ProteomeSETHPreds(ProteomeMetric):
     """
     This class manages SETH predictions for whole Proteomes.
 
@@ -206,7 +222,7 @@ class ProteomeSETHPreds:
     SETH_preds = {prot_id1: [...], prot_id2: [...]}
     ```
     """
-    seth_preds: dict[str: list[float]]
+    seth_preds_by_id: dict[str: list[float]]
 
     @classmethod
     def from_file(cls, SETH_preds_path: str):
@@ -222,14 +238,11 @@ class ProteomeSETHPreds:
                 proteome_seth_preds[uniprot_id] = disorder
             return cls(proteome_seth_preds)
 
-    def get_uniprot_ids(self) -> set[str]:
-        return set(self.seth_preds.keys())
-
-    def get_seth_preds_by_id(self, uniprot_id: str) -> list[float]:
-        return self.seth_preds[uniprot_id]
+    def get_uniprot_ids(self):
+        return set(self.seth_preds_by_id.keys())
 
     def __getitem__(self, item):
-        return self.get_seth_preds_by_id(item)
+        return self.seth_preds_by_id[item]
 
 
 @dataclass
