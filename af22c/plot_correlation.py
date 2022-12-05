@@ -11,8 +11,8 @@ if __name__=='__main__':
     parser.add_argument('msa_sizes_dir')
     args = parser.parse_args()
 
-    neffs = ProteomeNeffs.from_directory(args.neff_dir, "Neff")
-    neffs_naive = ProteomeNeffsNaive.from_directory(args.neff_naive_dir, "Neff naive")
+    neffs = ProteomeNeffs.from_directory(args.neff_dir)
+    neffs_naive = ProteomeNeffsNaive.from_directory(args.neff_naive_dir)
     plddts = ProteomePLDDTs.from_file(args.plddts_path)
     seths = ProteomeSETHPreds.from_file(args.seth_path)
     msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_dir)

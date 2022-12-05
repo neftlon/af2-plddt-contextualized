@@ -29,7 +29,17 @@ class ProteomewidePerProteinMetric(Proteome):
         ...
 
 
+@dataclass
 class ProteomewidePerResidueMetric(Proteome):
+    metric_name: str = field(init=False)
+
+    def __post_init__(self):
+        self.init_metric_name()
+
+    @abstractmethod
+    def init_metric_name(self):
+        ...
+
     @abstractmethod
     def __getitem__(self, uniprot_id: str) -> list[float]:
         """Return a list of scores (per-residue/AA) for a given UniProt identifier."""
@@ -280,20 +290,17 @@ class ProteomeScores(ProteomewidePerResidueMetric):
                 with scores_path.open(mode='w+') as p:
                     json.dump(scores, p)
 
-    score_name: str
     score_provider: ScoresFromDirProvider
 
     @classmethod
-    def from_directory(cls, path: str, score_name: str):
-        return cls(score_name, cls.ScoresFromDirProvider(Path(path)))
+    def from_directory(cls, path: str):
+        return cls(cls.ScoresFromDirProvider(Path(path)))
 
     @classmethod
     def from_msas(cls, proteome_msas: ProteomeMSAs, scores_dir: str, write_scores_on_demand=True):
         scores_dir = Path(scores_dir)
-        score_name = scores_dir.name
         return cls(
-            score_name,
-            cls.ScoresFromProteomeProvider(scores_dir, proteome_msas, write_scores_on_demand, cls.compute_scores),
+            cls.ScoresFromProteomeProvider(scores_dir, proteome_msas, write_scores_on_demand, cls.compute_scores)
         )
 
     def get_uniprot_ids(self) -> set[str]:
@@ -312,14 +319,20 @@ class ProteomeScores(ProteomewidePerResidueMetric):
 
 
 class ProteomeNeffs(ProteomeScores):
+    def init_metric_name(self):
+        self.metric_name = "Neff"
+
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[float]:
         # NOTE: since Neff scores usually are in the area of 1k to 10k, rounding to `int` here should be sufficient
-        neffs =  msa.compute_neff()
+        neffs = msa.compute_neff()
         return list(map(lambda f: float(round(f)), neffs.tolist()))
 
 
 class ProteomeNeffsNaive(ProteomeScores):
+    def init_metric_name(self):
+        self.metric_name = "Neff naive"
+
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[float]:
         # NOTE: since Neff scores usually are in the area of 1k to 10k, rounding to `int` here should be sufficient
@@ -345,6 +358,9 @@ class ProteomePLDDTs(ProteomewidePerResidueMetric):
         path = Path(plddt_path)
         with path.open() as p:
             return cls(json.load(p))
+
+    def init_metric_name(self):
+        self.metric_name = "pLDDT"
 
     def get_uniprot_ids(self):
         return set(self.plddts_by_id.keys())
@@ -379,6 +395,9 @@ class ProteomeSETHPreds(ProteomewidePerResidueMetric):
                 disorder = list(map(float, disorder.split(", ")))
                 proteome_seth_preds[uniprot_id] = disorder
             return cls(proteome_seth_preds)
+
+    def init_metric_name(self):
+        self.metric_name = "pred. dis."
 
     def get_uniprot_ids(self):
         return set(self.seth_preds_by_id.keys())
@@ -423,10 +442,10 @@ class ProteomeCorrelation:
         return self._get_length_consistent_ids()
 
     def _generate_observation_df(self, uniprot_id) -> pd.DataFrame:
-        obs_dict = {'pLDDTs': self.plddts[uniprot_id],
-                    'pred. dis.': self.seth_preds[uniprot_id],
-                    'Neff': self.neffs[uniprot_id],
-                    'Neff naive': self.neffs_naive[uniprot_id]}
+        obs_dict = {self.plddts.metric_name: self.plddts[uniprot_id],
+                    self.seth_preds.metric_name: self.seth_preds[uniprot_id],
+                    self.neffs.metric_name: self.neffs[uniprot_id],
+                    self.neffs_naive.metric_name: self.neffs_naive[uniprot_id]}
         return pd.DataFrame(obs_dict)
 
     def get_pearson_corr(self, uniprot_id) -> pd.DataFrame:
