@@ -5,9 +5,479 @@ import numpy as np
 # A list of standard amino acid names
 # NOTE: taken from https://biopython.org/docs/1.76/api/Bio.Alphabet.IUPAC.html#Bio.Alphabet.IUPAC.IUPACProtein
 PROT_SEQ_AAS = list("ACDEFGHIKLMNPQRSTVWY")
+AA_TO_INT = {aa: index for index, aa in enumerate(PROT_SEQ_AAS)}
+INT_TO_AA = {index: aa for index, aa in enumerate(PROT_SEQ_AAS)}
+DEFAULT_SIMILARITY_MATRIX = np.array([
+    [
+        0.0215,
+        0.0016,
+        0.0022,
+        0.003,
+        0.0016,
+        0.0058,
+        0.0011,
+        0.0032,
+        0.0033,
+        0.0044,
+        0.0013,
+        0.0019,
+        0.0022,
+        0.0019,
+        0.0023,
+        0.0063,
+        0.0037,
+        0.0051,
+        0.0004,
+        0.0013
+    ],
+    [
+        0.0016,
+        0.0119,
+        0.0004,
+        0.0004,
+        0.0005,
+        0.0008,
+        0.0002,
+        0.0011,
+        0.0005,
+        0.0016,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0003,
+        0.0004,
+        0.001,
+        0.0009,
+        0.0014,
+        0.0001,
+        0.0003
+    ],
+    [
+        0.0022,
+        0.0004,
+        0.0213,
+        0.0049,
+        0.0008,
+        0.0025,
+        0.001,
+        0.0012,
+        0.0024,
+        0.0015,
+        0.0005,
+        0.0037,
+        0.0012,
+        0.0016,
+        0.0016,
+        0.0028,
+        0.0019,
+        0.0013,
+        0.0002,
+        0.0006
+    ],
+    [
+        0.003,
+        0.0004,
+        0.0049,
+        0.0161,
+        0.0009,
+        0.0019,
+        0.0014,
+        0.0012,
+        0.0041,
+        0.002,
+        0.0007,
+        0.0022,
+        0.0014,
+        0.0035,
+        0.0027,
+        0.003,
+        0.002,
+        0.0017,
+        0.0003,
+        0.0009
+    ],
+    [
+        0.0016,
+        0.0005,
+        0.0008,
+        0.0009,
+        0.0183,
+        0.0012,
+        0.0008,
+        0.003,
+        0.0009,
+        0.0054,
+        0.0012,
+        0.0008,
+        0.0005,
+        0.0005,
+        0.0009,
+        0.0012,
+        0.0012,
+        0.0026,
+        0.0008,
+        0.0042
+    ],
+    [
+        0.0058,
+        0.0008,
+        0.0025,
+        0.0019,
+        0.0012,
+        0.0378,
+        0.001,
+        0.0014,
+        0.0025,
+        0.0021,
+        0.0007,
+        0.0029,
+        0.0014,
+        0.0014,
+        0.0017,
+        0.0038,
+        0.0022,
+        0.0018,
+        0.0004,
+        0.0008
+    ],
+    [
+        0.0011,
+        0.0002,
+        0.001,
+        0.0014,
+        0.0008,
+        0.001,
+        0.0093,
+        0.0006,
+        0.0012,
+        0.001,
+        0.0004,
+        0.0014,
+        0.0005,
+        0.001,
+        0.0012,
+        0.0011,
+        0.0007,
+        0.0006,
+        0.0002,
+        0.0015
+    ],
+    [
+        0.0032,
+        0.0011,
+        0.0012,
+        0.0012,
+        0.003,
+        0.0014,
+        0.0006,
+        0.0184,
+        0.0016,
+        0.0114,
+        0.0025,
+        0.001,
+        0.001,
+        0.0009,
+        0.0012,
+        0.0017,
+        0.0027,
+        0.012,
+        0.0004,
+        0.0014
+    ],
+    [
+        0.0033,
+        0.0005,
+        0.0024,
+        0.0041,
+        0.0009,
+        0.0025,
+        0.0012,
+        0.0016,
+        0.0161,
+        0.0025,
+        0.0009,
+        0.0024,
+        0.0016,
+        0.0031,
+        0.0062,
+        0.0031,
+        0.0023,
+        0.0019,
+        0.0003,
+        0.001
+    ],
+    [
+        0.0044,
+        0.0016,
+        0.0015,
+        0.002,
+        0.0054,
+        0.0021,
+        0.001,
+        0.0114,
+        0.0025,
+        0.0371,
+        0.0049,
+        0.0014,
+        0.0014,
+        0.0016,
+        0.0024,
+        0.0024,
+        0.0033,
+        0.0095,
+        0.0007,
+        0.0022
+    ],
+    [
+        0.0013,
+        0.0004,
+        0.0005,
+        0.0007,
+        0.0012,
+        0.0007,
+        0.0004,
+        0.0025,
+        0.0009,
+        0.0049,
+        0.004,
+        0.0005,
+        0.0004,
+        0.0007,
+        0.0008,
+        0.0009,
+        0.001,
+        0.0023,
+        0.0002,
+        0.0006
+    ],
+    [
+        0.0019,
+        0.0004,
+        0.0037,
+        0.0022,
+        0.0008,
+        0.0029,
+        0.0014,
+        0.001,
+        0.0024,
+        0.0014,
+        0.0005,
+        0.0141,
+        0.0009,
+        0.0015,
+        0.002,
+        0.0031,
+        0.0022,
+        0.0012,
+        0.0002,
+        0.0007
+    ],
+    [
+        0.0022,
+        0.0004,
+        0.0012,
+        0.0014,
+        0.0005,
+        0.0014,
+        0.0005,
+        0.001,
+        0.0016,
+        0.0014,
+        0.0004,
+        0.0009,
+        0.0191,
+        0.0008,
+        0.001,
+        0.0017,
+        0.0014,
+        0.0012,
+        0.0001,
+        0.0005
+    ],
+    [
+        0.0019,
+        0.0003,
+        0.0016,
+        0.0035,
+        0.0005,
+        0.0014,
+        0.001,
+        0.0009,
+        0.0031,
+        0.0016,
+        0.0007,
+        0.0015,
+        0.0008,
+        0.0073,
+        0.0025,
+        0.0019,
+        0.0014,
+        0.0012,
+        0.0002,
+        0.0007
+    ],
+    [
+        0.0023,
+        0.0004,
+        0.0016,
+        0.0027,
+        0.0009,
+        0.0017,
+        0.0012,
+        0.0012,
+        0.0062,
+        0.0024,
+        0.0008,
+        0.002,
+        0.001,
+        0.0025,
+        0.0178,
+        0.0023,
+        0.0018,
+        0.0016,
+        0.0003,
+        0.0009
+    ],
+    [
+        0.0063,
+        0.001,
+        0.0028,
+        0.003,
+        0.0012,
+        0.0038,
+        0.0011,
+        0.0017,
+        0.0031,
+        0.0024,
+        0.0009,
+        0.0031,
+        0.0017,
+        0.0019,
+        0.0023,
+        0.0126,
+        0.0047,
+        0.0024,
+        0.0003,
+        0.001
+    ],
+    [
+        0.0037,
+        0.0009,
+        0.0019,
+        0.002,
+        0.0012,
+        0.0022,
+        0.0007,
+        0.0027,
+        0.0023,
+        0.0033,
+        0.001,
+        0.0022,
+        0.0014,
+        0.0014,
+        0.0018,
+        0.0047,
+        0.0125,
+        0.0036,
+        0.0003,
+        0.0009
+    ],
+    [
+        0.0051,
+        0.0014,
+        0.0013,
+        0.0017,
+        0.0026,
+        0.0018,
+        0.0006,
+        0.012,
+        0.0019,
+        0.0095,
+        0.0023,
+        0.0012,
+        0.0012,
+        0.0012,
+        0.0016,
+        0.0024,
+        0.0036,
+        0.0196,
+        0.0004,
+        0.0015
+    ],
+    [
+        0.0004,
+        0.0001,
+        0.0002,
+        0.0003,
+        0.0008,
+        0.0004,
+        0.0002,
+        0.0004,
+        0.0003,
+        0.0007,
+        0.0002,
+        0.0002,
+        0.0001,
+        0.0002,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0004,
+        0.0065,
+        0.0009
+    ],
+    [
+        0.0013,
+        0.0003,
+        0.0006,
+        0.0009,
+        0.0042,
+        0.0008,
+        0.0015,
+        0.0014,
+        0.001,
+        0.0022,
+        0.0006,
+        0.0007,
+        0.0005,
+        0.0007,
+        0.0009,
+        0.001,
+        0.0009,
+        0.0015,
+        0.0009,
+        0.0102
+    ]
+])
 
 
-def calc_max_z(proteome_filename: str, uniprot_id: str) -> list[float]:
+def calc_background_distribution(sim_matrix: np.ndarray) -> np.ndarray:
+    return np.sum(sim_matrix, axis=0)
+
+
+def calc_relative_freqs(msa: MultipleSeqAlign, colidx: int) -> np.ndarray:
+    J = len(PROT_SEQ_AAS)
+    res = np.zeros(J)
+    for match in msa.matches:
+        aa = match[colidx]
+        if aa in PROT_SEQ_AAS:
+            res[AA_TO_INT[aa]] += 1
+    return res
+
+
+def calc_covariance_matrix(relative_freqs: np.ndarray, bg_dist: np.ndarray, num_observed_symbols: int) -> np.ndarray:
+    assert relative_freqs.ndim == 1
+    assert bg_dist.ndim == 1
+
+    J = len(PROT_SEQ_AAS)
+    res = np.empty((J, J))
+    for i, j in np.ndindex(J, J):
+        kronecker = 1.0 if i == j else 0.0
+        res[i, j] = (relative_freqs[i] * (kronecker - relative_freqs[j])) / num_observed_symbols
+    return res
+
+
+def calc_max_z(msa: MultipleSeqAlign, sim_matrix=DEFAULT_SIMILARITY_MATRIX, bg_dist=None) -> list[float]:
     """
     Calculate the maxZ score introduced by [1].
 
@@ -15,40 +485,40 @@ def calc_max_z(proteome_filename: str, uniprot_id: str) -> list[float]:
     sequence alignments. BMC Bioinformatics 7, 484 (2006). https://doi.org/10.1186/1471-2105-7-484
     """
     # TODO: add citation to README.md?
-    msa = MultipleSeqAlign.from_a3m("")
+    # NOTE: this code is taken from https://github.com/mcm2020/average-maxZ-score/blob/master/averagemaxz/maxz.py
+    if not bg_dist:
+        bg_dist = calc_background_distribution(sim_matrix)
 
     # constants
-    J = len(PROT_SEQ_AAS)
-    N = len(msa.matches)
+    J = len(PROT_SEQ_AAS)  # number of available symbols
 
-    C = np.eye(J)  # similarity matrix (TODO: does this need to come from a PSSM?)
-
-    beta0 = np.zeros(
-        J
-    )  # TODO: find this, "degree of positional conservation w.r.t. a predefined background distribution"
-    covariance0 = np.zeros(
-        (J, J)
-    )  # TODO: implement this: "equation (3) with beta_j replaced by beta_j0"
-
+    # actual maxZ score calculation
     Zs = np.zeros(len(msa.query_seq))
     for colidx in range(len(msa.query_seq)):
         # calculate observed symbol frequencies
         sym_freqs = {aa: 0 for aa in PROT_SEQ_AAS}  # symbol frequencies n_i
+        sym_freqs[msa.query_seq[colidx]] = 1
         for match in msa.matches:
             sym = match.aligned_seq[colidx]
-            sym_freqs[sym] += 1
+            if sym in PROT_SEQ_AAS:
+                sym_freqs[sym] += 1
 
         n = sum(sym_freqs.values())  # actual number of symbols observed, N - gaps
-        beta_mls = [
-            sym_freq / n for sym_freq in sym_freqs
-        ]  # maximum likelihood estimator for beta vector
-        covariance = ()  # TODO: this matrix should be the same for each column
+        b = np.array([
+            sym_freq / n for sym_freq in sym_freqs.values()
+        ])  # maximum likelihood estimator for beta vector
+
+        relative_freqs = calc_relative_freqs(msa, colidx)
+        covariance_matrix = calc_covariance_matrix(bg_dist, bg_dist, n)
 
         # calculate actual Z scores
         Zis = np.zeros(J)
         for i in range(J):
-            ci = C[i, :]  # c_i is "the ith row of C"
-            Zi = (ci.T @ (beta_mls - beta0)) / np.sqrt(ci.T @ covariance0 @ ci)
+            ci = sim_matrix[i, :]  # c_i is "the ith row of C"
+            numerator = (ci.T @ (b - bg_dist))
+            denominator = np.sqrt(ci.T @ covariance_matrix @ ci)
+            Zi = numerator / denominator
+            Zis[i] = Zi
         Z = np.max(Zis)
         Zs[colidx] = Z
     return Zs.tolist()
