@@ -74,6 +74,10 @@ class ProteomeMSAs(Proteome):
         def get_uniprot_ids(self) -> set[str]:
             ...
 
+        @abstractmethod
+        def get_name(self) -> str:
+            ...
+
     @dataclass
     class DirectoryMSAProvider(MSAProvider):
         name: str  # proteome name
@@ -90,6 +94,9 @@ class ProteomeMSAs(Proteome):
             # Search path and extract IDs from filenames
             filenames = [f for f in self.msa_path.iterdir() if f.is_file()]
             return {f.stem for f in filenames if f.suffix == ".a3m"}
+
+        def get_name(self) -> str:
+            return self.name
 
     @dataclass
     class ArchiveMSAProvider(MSAProvider):
@@ -128,6 +135,9 @@ class ProteomeMSAs(Proteome):
                 # use filename without path and extension as UniProt ID
                 return {os.path.basename(filename).split(".")[0] for filename in filenames}
 
+        def get_name(self) -> str:
+            return self.name
+
     msa_provider: MSAProvider
 
     @classmethod
@@ -147,6 +157,17 @@ class ProteomeMSAs(Proteome):
         proteome_path = Path(proteome_path)
         return cls(cls.ArchiveMSAProvider(proteome_name, proteome_path))
 
+    @classmethod
+    def from_file(cls, path: str):
+        """
+        Create a `ProteomeMSAs` object without explicitly specifying a filetype.
+
+        This method decides whether it should call `ProteomeMSAs.from_directory` or `ProteomeMSAs.from_archive`.
+        """
+        if path.endswith(".tar") or path.endswith(".tar.gz"):
+            return cls.from_archive(path)
+        return cls.from_directory(path)
+
     def __getitem__(self, uniprot_id: str) -> MultipleSeqAlign:
         return self.msa_provider.get_by_id(uniprot_id)
 
@@ -155,6 +176,9 @@ class ProteomeMSAs(Proteome):
 
     def get_uniprot_ids(self) -> set[str]:
         return self.msa_provider.get_uniprot_ids()
+
+    def get_name(self) -> str:
+        return self.msa_provider.get_name()
 
 
 @dataclass
@@ -227,9 +251,13 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
             cache_file_path: Path,
             write_csv_on_demand: bool,
         ):
+            # NOTE: this field need to be set BEFORE initializing the superclass because the overwritten `load` method
+            # of THIS subclass uses the attribute. otherwise, the `variable` will be referenced before assignment and
+            # everything goes down the drain.
+            self.write_csv_on_demand = write_csv_on_demand
+
             super().__init__(cache_file_path)
             self.proteome_msas = proteome_msas
-            self.write_csv_on_demand = write_csv_on_demand
 
         def load(self):
             try:
@@ -308,12 +336,12 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         cls, proteome_msas: ProteomeMSAs, data_dir="data", write_csv_on_demand=True
     ):
         # TODO: figure out whether we want to pass the data_dir here as a parameter
-        proteome_name = proteome_msas.name  # TODO: this does not work -- use a get_name method or something on the proteome
+        proteome_name = proteome_msas.get_name()
         data_dir = Path(data_dir)
         cache_file_path = data_dir / f"{proteome_name}_msa_size.csv"
         return cls(
             cls.ComputingMSASizeProvider(
-                proteome_msas, cache_file_path, write_csv_on_demand
+                proteome_msas, cache_file_path, write_csv_on_demand=write_csv_on_demand,
             )
         )
 
@@ -336,6 +364,9 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         return self.msa_size_provider.get_msa_sizes()
 
     def precompute_msa_sizes(self):
+        """
+        Precompute MSA sizes and store them in the referenced .csv file.
+        """
         self.msa_size_provider.precompute_msa_sizes()
 
     def plot_msa_sizes(self, data_dir="data", name="human"):
