@@ -163,9 +163,9 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
                 msa_sizes, columns=["uniprot_id", "query_length", "sequence_count"]
             )
             size_df.to_csv(
-                super().filepath,
+                self.filepath,
                 mode="a",
-                header=not super().filepath.is_file(),
+                header=not self.filepath.is_file(),
                 index=False,
             )
 
@@ -190,7 +190,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
 
         def precompute_msa_sizes(self):
             logging.info("Deleting cache file")
-            os.remove(super().filepath)
+            os.remove(self.filepath)
 
             logging.info(f"Computing MSA sizes ...")
             msa_sizes = []
@@ -205,7 +205,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
                     msa_sizes = []
             if msa_sizes:
                 self._store_msa_sizes(msa_sizes)
-            logging.info(f"Wrote MSA sizes to {super().filepath}")
+            logging.info(f"Wrote MSA sizes to {self.filepath}")
 
             super().load()
 

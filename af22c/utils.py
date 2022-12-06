@@ -29,4 +29,4 @@ def get_raw_proteome_name(proteome_filename: str) -> str:
 def get_protein_ids(proteome_filename: str) -> list[str]:
     """Get a list of UniProt IDs that the corresponding proteome file contains"""
     with tarfile.open(proteome_filename) as tar:
-        raise NotImplemented("`get_protein_ids` is not implemented yet")
+        raise NotImplementedError("`get_protein_ids` is not implemented yet")
