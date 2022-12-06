@@ -1,4 +1,5 @@
 import os
+import tarfile
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -11,6 +12,8 @@ import json
 from abc import abstractmethod, ABC
 
 from af22c.load_msa import MultipleSeqAlign
+from af22c.score_max_z import calc_max_z
+from af22c.utils import get_raw_proteome_name
 
 
 class Proteome(ABC):
@@ -57,27 +60,90 @@ class ProteomeMSAs(Proteome):
     msas_for_protein_path = f"{proteome_name}/msas/{uniprot_id}.a3m"
     ```
     """
+    class MSAProvider(ABC):
+        @abstractmethod
+        def get_by_id(self, uniprot_id: str) -> MultipleSeqAlign:
+            ...
 
-    name: str  # proteome name
-    msa_path: Path  # MSA path (directory containing MSAs)
+        @abstractmethod
+        def get_msas(self) -> Generator[MultipleSeqAlign, None, None]:
+            ...
+
+        @abstractmethod
+        def get_uniprot_ids(self) -> set[str]:
+            ...
+
+    @dataclass
+    class DirectoryMSAProvider(MSAProvider):
+        name: str  # proteome name
+        msa_path: Path  # MSA path (directory containing MSAs)
+
+        def get_by_id(self, uniprot_id: str) -> MultipleSeqAlign:
+            return MultipleSeqAlign.from_a3m(self.msa_path / f"{uniprot_id}.a3m")
+
+        def get_msas(self) -> Generator[MultipleSeqAlign, None, None]:
+            for uniprot_id in tqdm(self.get_uniprot_ids()):
+                yield self.get_by_id(uniprot_id)
+
+        def get_uniprot_ids(self) -> set[str]:
+            # Search path and extract IDs from filenames
+            filenames = [f for f in self.msa_path.iterdir() if f.is_file()]
+            return {f.stem for f in filenames if f.suffix == ".a3m"}
+
+    @dataclass
+    class ArchiveMSAProvider(MSAProvider):
+        name: str  # proteome name
+        msa_path: Path  # MSA path (path to archive containing MSAs)
+        a3m_subdir: Path = field(init=False)
+
+        def __post_init__(self):
+            # TODO: not all archive files have the same layout, make this parameterizable
+            self.a3m_subdir = Path(self.name) / "msas"
+
+        def get_by_id(self, uniprot_id: str) -> MultipleSeqAlign:
+            ...
+
+        def get_msas(self) -> Generator[MultipleSeqAlign, None, None]:
+            ...
+
+        def get_uniprot_ids(self) -> set[str]:
+            a3m_subdir = str(self.a3m_subdir)  # convert to string only once and not multiple times
+            with tarfile.open(self.msa_path) as tar:
+                filenames = tar.getnames()
+                # all files must be within a specified subdirectory of the archive, and they need to be .a3m files
+                filenames = [
+                    filename for filename in filenames if filename.startswith(a3m_subdir) and filename.endswith(".a3m")
+                ]
+                # use filename without path and extension as UniProt ID
+                return {os.path.basename(filename).split(".")[0] for filename in filenames}
+
+    msa_provider: MSAProvider
 
     @classmethod
-    def from_directory(cls, proteome_path: str):
+    def from_directory(cls, msas_path: str):
+        msas_path = Path(msas_path)
+        return cls(cls.DirectoryMSAProvider(msas_path.name, msas_path))
+
+    @classmethod
+    def from_archive(cls, proteome_path: str):
+        if proteome_path.endswith(".tar.gz"):
+            logging.warning(
+                f"Trying to create an `ProteomeMSA` file from a compressed file {proteome_path}. This is possible, but "
+                f"extremely slow and therefore not recommended. We suggest unpacking the file, for instance to a .tar "
+                f"archive or to a directory (then, `ProteomeMSA.from_directory` must be used to create this object)."
+            )
+        proteome_name = get_raw_proteome_name(proteome_path)
         proteome_path = Path(proteome_path)
-        return cls(proteome_path.name, proteome_path / "msas")
+        return cls(cls.ArchiveMSAProvider(proteome_name, proteome_path))
 
     def __getitem__(self, uniprot_id: str) -> MultipleSeqAlign:
-        return MultipleSeqAlign.from_a3m(self.msa_path / f"{uniprot_id}.a3m")
+        return self.msa_provider.get_by_id(uniprot_id)
 
     def get_msas(self) -> Generator[MultipleSeqAlign, None, None]:
-        logging.info(f"iterating over MSAs ...")
-        for uniprot_id in tqdm(self.get_uniprot_ids()):
-            yield self[uniprot_id]
+        return self.msa_provider.get_msas()
 
     def get_uniprot_ids(self) -> set[str]:
-        # Search path and extract IDs from filenames
-        filenames = [f for f in self.msa_path.iterdir() if f.is_file()]
-        return {f.stem for f in filenames if f.suffix == ".a3m"}
+        return self.msa_provider.get_uniprot_ids()
 
 
 @dataclass
@@ -180,7 +246,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
                 index=False,
             )
 
-        def compute_msa_size(self, uniprot_id: str):
+        def compute_msa_size(self, uniprot_id: str) -> tuple[int, int]:
             msa = self.proteome_msas[uniprot_id]
             return msa.get_size()
 
@@ -231,7 +297,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         cls, proteome_msas: ProteomeMSAs, data_dir="data", write_csv_on_demand=True
     ):
         # TODO: figure out whether we want to pass the data_dir here as a parameter
-        proteome_name = proteome_msas.name
+        proteome_name = proteome_msas.name  # TODO: this does not work -- use a get_name method or something on the proteome
         data_dir = Path(data_dir)
         cache_file_path = data_dir / f"{proteome_name}_msa_size.csv"
         return cls(
@@ -393,6 +459,16 @@ class ProteomeNeffsNaive(ProteomeScores):
         # NOTE: since Neff scores usually are in the area of 1k to 10k, rounding to `int` here should be sufficient
         neffs_naive = msa.compute_neff_naive()
         return list(map(lambda f: float(round(f)), neffs_naive.tolist()))
+
+
+class ProteomeMaxZs(ProteomeScores):
+    def init_metric_name(self):
+        self.metric_name = "maxZ"
+
+    @staticmethod
+    def compute_scores(msa: MultipleSeqAlign) -> list[float]:
+        # TODO: take care of the parameters to this function
+        return calc_max_z(msa)
 
 
 @dataclass
