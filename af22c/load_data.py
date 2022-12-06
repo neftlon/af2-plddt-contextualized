@@ -7,7 +7,7 @@ import statistics
 
 from af22c.load_msa import calc_naive_neff_by_id
 from af22c.neff_cache_or_calc import NeffCacheOrCalc
-from af22c.plot_pairwise_correlation import plot_pairwise_correlation
+from af22c.plots import plot_pairwise_correlation
 
 
 @st.experimental_singleton(suppress_st_warning=True)
