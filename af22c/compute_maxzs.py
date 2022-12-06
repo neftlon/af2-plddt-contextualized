@@ -46,5 +46,7 @@ if __name__ == "__main__":
         for uniprot_id in uniprot_ids:
             msa = proteome[uniprot_id]
             scores = calc_max_z(msa)
-            with open(Path(args.data_dir) / "maxzs" / f"{uniprot_id}.json", "w") as outfile:
+            with open(
+                Path(args.data_dir) / "maxzs" / f"{uniprot_id}.json", "w"
+            ) as outfile:
                 json.dump(scores, outfile)

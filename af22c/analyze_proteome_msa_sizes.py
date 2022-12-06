@@ -11,7 +11,10 @@ def show_duplicates(proteome):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("proteome_src", help="Proteome source folder or archive (.tar or .tar.gz) containing MSAs")
+    parser.add_argument(
+        "proteome_src",
+        help="Proteome source folder or archive (.tar or .tar.gz) containing MSAs",
+    )
     parser.add_argument("data_dir")
     parser.add_argument("-c", "--compute_size", action="store_true")
     parser.add_argument("-p", "--plot_size", action="store_true")

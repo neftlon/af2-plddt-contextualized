@@ -61,6 +61,7 @@ class ProteomeMSAs(Proteome):
     msas_for_protein_path = f"{proteome_name}/msas/{uniprot_id}.a3m"
     ```
     """
+
     class MSAProvider(ABC):
         @abstractmethod
         def get_by_id(self, uniprot_id: str) -> MultipleSeqAlign:
@@ -125,15 +126,21 @@ class ProteomeMSAs(Proteome):
                     yield self._extract_msa(tar, uniprot_id)
 
         def get_uniprot_ids(self) -> set[str]:
-            a3m_subdir = str(self.a3m_subdir)  # convert to string only once and not multiple times
+            a3m_subdir = str(
+                self.a3m_subdir
+            )  # convert to string only once and not multiple times
             with tarfile.open(self.msa_path) as tar:
                 filenames = tar.getnames()
                 # all files must be within a specified subdirectory of the archive, and they need to be .a3m files
                 filenames = [
-                    filename for filename in filenames if filename.startswith(a3m_subdir) and filename.endswith(".a3m")
+                    filename
+                    for filename in filenames
+                    if filename.startswith(a3m_subdir) and filename.endswith(".a3m")
                 ]
                 # use filename without path and extension as UniProt ID
-                return {os.path.basename(filename).split(".")[0] for filename in filenames}
+                return {
+                    os.path.basename(filename).split(".")[0] for filename in filenames
+                }
 
         def get_name(self) -> str:
             return self.name
@@ -341,7 +348,9 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         cache_file_path = data_dir / f"{proteome_name}_msa_size.csv"
         return cls(
             cls.ComputingMSASizeProvider(
-                proteome_msas, cache_file_path, write_csv_on_demand=write_csv_on_demand,
+                proteome_msas,
+                cache_file_path,
+                write_csv_on_demand=write_csv_on_demand,
             )
         )
 
@@ -639,8 +648,13 @@ class ProteomeCorrelation:
     ):
         # compute protein IDs
         prot_ids = self.get_uniprot_ids()
-        
-        if min_q_len != 0 or max_q_len != np.inf or min_n_seq != 0 or max_n_seq != np.inf:
+
+        if (
+            min_q_len != 0
+            or max_q_len != np.inf
+            or min_n_seq != 0
+            or max_n_seq != np.inf
+        ):
             # we can only limit the range of protein sizes, if there is an MSASizes object present
             # in `scores`
             if self.msa_sizes:
