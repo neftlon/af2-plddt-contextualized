@@ -17,10 +17,12 @@ current Python environment.
 It is recommended to use [conda](https://docs.conda.io/en/latest/), you can create a new requirement with all dependencies installed like the following:
 
 ```bash
-conda create --name env python=3.9
+conda create --name env python=3.10
 conda activate env
 pip install -r requirements.txt
 ```
+
+Note that our project requires Python 3.10.
 
 Install the `af22c` package in development mode with the following command in the project root directory:
 ```bash
