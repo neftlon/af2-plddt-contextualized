@@ -1,3 +1,4 @@
+import io
 import os
 import tarfile
 import numpy as np
@@ -100,11 +101,21 @@ class ProteomeMSAs(Proteome):
             # TODO: not all archive files have the same layout, make this parameterizable
             self.a3m_subdir = Path(self.name) / "msas"
 
+        def _extract_msa(self, tar: tarfile.TarFile, uniprot_id: str):
+            a3m_filename = os.path.join(self.a3m_subdir, f"{uniprot_id}.a3m")
+            a3m = tar.extractfile(a3m_filename)
+            with io.TextIOWrapper(a3m, encoding="utf-8") as a3m:
+                return MultipleSeqAlign.from_a3m(a3m)
+
         def get_by_id(self, uniprot_id: str) -> MultipleSeqAlign:
-            ...
+            with tarfile.open(self.msa_path) as tar:
+                return self._extract_msa(tar, uniprot_id)
 
         def get_msas(self) -> Generator[MultipleSeqAlign, None, None]:
-            ...
+            uniprot_ids = self.get_uniprot_ids()
+            with tarfile.open(self.msa_path) as tar:
+                for uniprot_id in uniprot_ids:
+                    yield self._extract_msa(tar, uniprot_id)
 
         def get_uniprot_ids(self) -> set[str]:
             a3m_subdir = str(self.a3m_subdir)  # convert to string only once and not multiple times

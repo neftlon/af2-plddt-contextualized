@@ -7,6 +7,8 @@ import os
 from functools import lru_cache
 import logging
 from pathlib import Path
+from contextlib import contextmanager
+from typing import IO
 
 
 @lru_cache(None)
@@ -30,3 +32,16 @@ def get_protein_ids(proteome_filename: str) -> list[str]:
     """Get a list of UniProt IDs that the corresponding proteome file contains"""
     with tarfile.open(proteome_filename) as tar:
         raise NotImplementedError("`get_protein_ids` is not implemented yet")
+
+
+@contextmanager
+def as_handle(filething, mode="r", **kwargs) -> IO:
+    """
+    Transparent context manager for working with files. You can pass a filename as a `str`, `Path` or an actual file
+    object to this function. The function will try to create a handle if necessary.
+    """
+    try:
+        with open(filething, mode=mode, **kwargs) as fh:
+            yield fh
+    except TypeError:
+        yield filething
