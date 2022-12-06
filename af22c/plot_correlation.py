@@ -1,9 +1,11 @@
+#!/usr/bin/env python
+
 import argparse
 from af22c.proteome import *
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("data_dir")
+    parser.add_argument("data_dir", help="Directory to put the plot")
     parser.add_argument("neff_dir")
     parser.add_argument("neff_naive_dir")
     parser.add_argument("plddts_path")
@@ -16,7 +18,7 @@ if __name__ == "__main__":
     plddts = ProteomePLDDTs.from_file(args.plddts_path)
     seths = ProteomeSETHPreds.from_file(args.seth_path)
     msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_dir)
-    correlation = ProteomeCorrelation(neffs, neffs_naive, plddts, seths, msa_sizes)
+    correlation = ProteomeCorrelation([neffs, neffs_naive, plddts, seths], msa_sizes)
 
     correlation.plot_mean_pearson_corr_mat(
         args.data_dir,

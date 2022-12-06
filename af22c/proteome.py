@@ -465,22 +465,22 @@ class ProteomeSETHPreds(ProteomewidePerResidueMetric):
 
 @dataclass
 class ProteomeCorrelation:
-    neffs: ProteomeNeffs
-    neffs_naive: ProteomeNeffsNaive
-    plddts: ProteomePLDDTs
-    seth_preds: ProteomeSETHPreds
+    scores: list[ProteomewidePerResidueMetric]
     msa_sizes: ProteomeMSASizes
 
     def _get_shared_ids(self) -> set[str]:
-        neff_ids = self.neffs.get_uniprot_ids()
-        neff_naive_ids = self.neffs_naive.get_uniprot_ids()
-        plddt_ids = self.plddts.get_uniprot_ids()
-        seth_pred_ids = self.seth_preds.get_uniprot_ids()
+        score_ids = [score.get_uniprot_ids() for score in self.scores]
 
-        shared_ids = neff_ids & neff_naive_ids & plddt_ids & seth_pred_ids
-        not_shared_ids = (
-            neff_ids | neff_naive_ids | plddt_ids | seth_pred_ids
-        ) - shared_ids
+        all_ids = set().union(*score_ids)
+        shared_ids = all_ids.intersection(*score_ids)
+
+        if self.msa_sizes:
+            ids = self.msa_sizes.get_uniprot_ids()
+            all_ids |= ids
+            shared_ids &= ids
+
+        not_shared_ids = all_ids - shared_ids
+
         logging.info(
             f"Disregarding {len(not_shared_ids)} proteins since they are not available in all datasets."
         )
@@ -490,12 +490,8 @@ class ProteomeCorrelation:
         mismatched_len_ids = set()
         shared_ids = self._get_shared_ids()
         for prot_id in shared_ids:
-            reference_len = len(self.neffs[prot_id])
-            is_mismatch = (
-                reference_len != len(self.plddts[prot_id])
-                or reference_len != len(self.seth_preds[prot_id])
-                or reference_len != len(self.neffs_naive[prot_id])
-            )
+            lens = [len(score[prot_id]) for score in self.scores]
+            is_mismatch = len(set(lens)) > 1
             if is_mismatch:
                 mismatched_len_ids.add(prot_id)
         logging.info(
@@ -507,12 +503,7 @@ class ProteomeCorrelation:
         return self._get_length_consistent_ids()
 
     def _generate_observation_df(self, uniprot_id) -> pd.DataFrame:
-        obs_dict = {
-            self.plddts.metric_name: self.plddts[uniprot_id],
-            self.seth_preds.metric_name: self.seth_preds[uniprot_id],
-            self.neffs.metric_name: self.neffs[uniprot_id],
-            self.neffs_naive.metric_name: self.neffs_naive[uniprot_id],
-        }
+        obs_dict = {score.metric_name: score[uniprot_id] for score in self.scores}
         return pd.DataFrame(obs_dict)
 
     def get_pearson_corr(self, uniprot_id) -> pd.DataFrame:
@@ -528,13 +519,32 @@ class ProteomeCorrelation:
         min_n_seq=0,
         max_n_seq=np.inf,
     ):
+        # compute protein IDs
         prot_ids = self.get_uniprot_ids()
-        prot_ids = prot_ids & self.msa_sizes.get_uniprot_ids_in_size(
-            min_q_len=min_q_len,
-            max_q_len=max_q_len,
-            min_n_seq=min_n_seq,
-            max_n_seq=max_n_seq,
-        )
+        
+        if min_q_len != 0 or max_q_len != np.inf or min_n_seq != 0 or max_n_seq != np.inf:
+            # we can only limit the range of protein sizes, if there is an MSASizes object present
+            # in `scores`
+            if self.msa_sizes:
+                # we found a `ProteomeMSASizes` score, use it to only retain protein IDs that
+                # lay within the given ranges.
+                prot_ids &= self.msa_sizes.get_uniprot_ids_in_size(
+                    min_q_len=min_q_len,
+                    max_q_len=max_q_len,
+                    min_n_seq=min_n_seq,
+                    max_n_seq=max_n_seq,
+                )
+            else:
+                logging.warning(
+                    "According to the parameters, this call to `plot_mean_pearson_corr_mat` "
+                    "should only include proteins of given sizes into analysis. "
+                    "However, this requires at least one `ProteomeMSASizes` score to be "
+                    "present in the scores list. Since there is none, the list of proteins "
+                    "will NOT be shrunken by the given range constraints. "
+                    "Consider adding a `ProteomeMSASizes` scores to the list of scores."
+                )
+
+        # compute pairwise correlation
         df_index = None
         p_corr_list = []
         for prot_id in prot_ids:
@@ -549,6 +559,7 @@ class ProteomeCorrelation:
             np.mean(p_corr_array, axis=0), index=df_index[0], columns=df_index[1]
         )
 
+        # draw figure
         fig_path = Path(data_dir) / f"{name}_mean_pearson_corr.png"
         sns.set_style("whitegrid")
         mask = np.triu(np.ones_like(p_corr_mean, dtype=bool))
