@@ -96,6 +96,17 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
                 )
             self.msa_sizes = pd.read_csv(self.filepath)
 
+            # check that the CSV contains the right fields
+            required_fields = {"uniprot_id", "query_length", "sequence_count"}
+            actual_fields = set(self.msa_sizes.columns)
+            if not required_fields <= actual_fields:
+                raise ValueError(
+                    f"CSV file {self.filepath} does not contain the right column names to build a `ProteomeMSASizes` "
+                    f"object.\n"
+                    f"Expected column names:       {required_fields}\n"
+                    f"Actual column names in file: {actual_fields}"
+                )
+
         def __getitem__(self, uniprot_id) -> tuple[int, int]:
             size = self.msa_sizes[self.msa_sizes["uniprot_id"] == uniprot_id]
             n_seq, q_len = size["sequence_count"], size["query_length"]
