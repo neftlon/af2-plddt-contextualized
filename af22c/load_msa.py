@@ -17,11 +17,11 @@ import numpy as np
 from itertools import repeat, chain
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
-from typing import Callable
+from typing import Callable, IO
 from pathlib import Path
 from collections import defaultdict
 
-from af22c.utils import warn_once
+from af22c.utils import warn_once, as_handle
 
 MsaMatchAttribs = namedtuple(
     "MsaMatchAttribs",
@@ -82,8 +82,8 @@ class MultipleSeqAlign:
     matches: list[MsaMatch]
 
     @classmethod
-    def from_a3m(cls, path: Path):
-        with open(path) as a3m:
+    def from_a3m(cls, filething: str | Path | IO):
+        with as_handle(filething) as a3m:
             # TODO make extract_query_and_matches a method of the MSA class
             return cls(*extract_query_and_matches(a3m))
 
