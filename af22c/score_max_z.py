@@ -505,7 +505,10 @@ def calc_max_z(
     for colidx in range(len(msa.query_seq)):
         # calculate observed symbol frequencies
         sym_freqs = {aa: 0 for aa in PROT_SEQ_AAS}  # symbol frequencies n_i
-        sym_freqs[msa.query_seq[colidx]] = 1
+        if msa.query_seq[colidx] not in PROT_SEQ_AAS:
+            # TODO how should we handle this?
+            raise ValueError("Query sequence contains a non AA residue.")
+        sym_freqs[msa.query_seq[colidx]] = 1  # Add residue appearance from query.
         for match in msa.matches:
             sym = match.aligned_seq[colidx]
             if sym in PROT_SEQ_AAS:
