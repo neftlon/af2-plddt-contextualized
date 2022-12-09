@@ -1,5 +1,6 @@
 data/
 !data/BLOSUM62.txt
+!data/blosum62qij.txt
 logs/
 
 # Byte-compiled / optimized / DLL files
