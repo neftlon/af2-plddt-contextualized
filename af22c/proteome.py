@@ -45,7 +45,7 @@ class ProteomewidePerResidueMetric(Proteome):
         ...
 
     @abstractmethod
-    def __getitem__(self, uniprot_id: str) -> list[float]:
+    def __getitem__(self, uniprot_id: str) -> list[float | int]:
         """Return a list of scores (per-residue/AA) for a given UniProt identifier."""
         ...
 
@@ -404,7 +404,7 @@ class ProteomeScores(ProteomewidePerResidueMetric):
             filenames = [f for f in self.scores_dir.iterdir() if f.is_file()]
             return {f.stem for f in filenames if f.suffix == ".json"}
 
-        def __getitem__(self, uniprot_id):
+        def __getitem__(self, uniprot_id) -> list[float | int]:
             cache_path = self.scores_dir / f"{uniprot_id}.json"
             try:
                 return self._load_scores(cache_path)
@@ -432,7 +432,7 @@ class ProteomeScores(ProteomewidePerResidueMetric):
         write_scores_on_demand: bool
         compute_scores_fn: Callable
 
-        def __getitem__(self, uniprot_id: str) -> list[float]:
+        def __getitem__(self, uniprot_id: str) -> list[float | int]:
             try:
                 return super()[uniprot_id]
             except FileNotFoundError:
@@ -486,7 +486,7 @@ class ProteomeScores(ProteomewidePerResidueMetric):
 
     @staticmethod
     @abstractmethod
-    def compute_scores(msa: MultipleSeqAlign) -> list[float]:
+    def compute_scores(msa: MultipleSeqAlign) -> list[float | int]:
         ...
 
 
@@ -495,10 +495,10 @@ class ProteomeNeffs(ProteomeScores):
         self.metric_name = "Neff"
 
     @staticmethod
-    def compute_scores(msa: MultipleSeqAlign) -> list[float]:
+    def compute_scores(msa: MultipleSeqAlign) -> list[int]:
         # NOTE: since Neff scores usually are in the area of 1k to 10k, rounding to `int` here should be sufficient
         neffs = msa.compute_neff()
-        return list(map(lambda f: float(round(f)), neffs.tolist()))
+        return list(map(lambda f: round(f), neffs.tolist()))
 
 
 class ProteomeNeffsNaive(ProteomeScores):
@@ -506,10 +506,10 @@ class ProteomeNeffsNaive(ProteomeScores):
         self.metric_name = "Neff naive"
 
     @staticmethod
-    def compute_scores(msa: MultipleSeqAlign) -> list[float]:
+    def compute_scores(msa: MultipleSeqAlign) -> list[int]:
         # NOTE: since Neff scores usually are in the area of 1k to 10k, rounding to `int` here should be sufficient
         neffs_naive = msa.compute_neff_naive()
-        return list(map(lambda f: float(round(f)), neffs_naive.tolist()))
+        return list(map(lambda f: round(f), neffs_naive.tolist()))
 
 
 class ProteomeMaxZs(ProteomeScores):
@@ -519,7 +519,7 @@ class ProteomeMaxZs(ProteomeScores):
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[float]:
         # TODO: take care of the parameters to this function
-        return calc_max_z(msa)
+        return list(map(lambda f: round(f, 2), calc_max_z(msa)))
 
 
 @dataclass
