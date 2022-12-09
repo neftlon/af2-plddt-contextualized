@@ -87,6 +87,9 @@ class MultipleSeqAlign:
             # TODO make extract_query_and_matches a method of the MSA class
             return cls(*extract_query_and_matches(a3m))
 
+    # TODO Implement sanity check looking for 'X', '-' and other strange things in query sequence as well as
+    #  consistent sequence lengths.
+
     def get_size(self) -> tuple[int, int]:
         return len(self.query_seq), len(self.matches) + 1  # +1 for query sequence
 
