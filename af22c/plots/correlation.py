@@ -10,6 +10,7 @@ if __name__ == "__main__":
     parser.add_argument("neff_naive_dir")
     parser.add_argument("plddts_path")
     parser.add_argument("seth_path")
+    parser.add_argument("maxzs_path")
     parser.add_argument("msa_sizes_dir")
     args = parser.parse_args()
 
@@ -17,8 +18,9 @@ if __name__ == "__main__":
     neffs_naive = ProteomeNeffsNaive.from_directory(args.neff_naive_dir)
     plddts = ProteomePLDDTs.from_file(args.plddts_path)
     seths = ProteomeSETHPreds.from_file(args.seth_path)
+    maxzs = ProteomeMaxZs.from_directory(args.maxzs_path)
     msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_dir)
-    correlation = ProteomeCorrelation([neffs, neffs_naive, plddts, seths], msa_sizes)
+    correlation = ProteomeCorrelation([neffs, neffs_naive, plddts, seths, maxzs], msa_sizes)
 
     correlation.plot_mean_pearson_corr_mat(
         args.data_dir,
