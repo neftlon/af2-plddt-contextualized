@@ -419,7 +419,7 @@ class ProteomeScores(ProteomewidePerResidueMetric):
             with path.open() as p:
                 return json.load(p)
 
-        def compute_scores_by_id(self, uniprot_id: str):
+        def compute_scores_by_id(self, uniprot_id: str, overwrite_scores=False):
             raise Exception(
                 "Cannot compute MSA scores, no MSAs available. "
                 "Please provide MSAs on initialization by using the appropriate "
@@ -439,7 +439,7 @@ class ProteomeScores(ProteomewidePerResidueMetric):
                 self.compute_scores_by_id(uniprot_id)
                 return super()[uniprot_id]
 
-        def compute_scores_by_id(self, uniprot_id: str):
+        def compute_scores_by_id(self, uniprot_id: str, overwrite_scores=False):
             if not self.write_scores_on_demand:
                 raise IOError(
                     f"Writing scores to {self.scores_dir} is not allowed, write_scores_on_demand flag was set to False!"
@@ -447,7 +447,7 @@ class ProteomeScores(ProteomewidePerResidueMetric):
 
             self.scores_dir.mkdir(parents=True, exist_ok=True)
             scores_path = self.scores_dir / f"{uniprot_id}.json"
-            if scores_path.is_file():
+            if scores_path.is_file() and not overwrite_scores:
                 logging.info(
                     f"Scores for {uniprot_id} are already cached, skipped computation"
                 )
@@ -481,8 +481,8 @@ class ProteomeScores(ProteomewidePerResidueMetric):
     def __getitem__(self, uniprot_id):
         return self.score_provider[uniprot_id]
 
-    def compute_scores_by_id(self, uniprot_id: str):
-        self.score_provider.compute_scores_by_id(uniprot_id)
+    def compute_scores_by_id(self, uniprot_id: str, overwrite_scores=False):
+        self.score_provider.compute_scores_by_id(uniprot_id, overwrite_scores)
 
     @staticmethod
     @abstractmethod
