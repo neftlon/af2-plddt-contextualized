@@ -9,10 +9,9 @@ def plot_per_protein_score_distribution(
     ax: plt.Axes,
     score: ProteomewidePerResidueMetric,
     uniprot_id: str,
-    # TODO: scores should keep track of their limits/colors themselves
-    limits: tuple[float, float] = None,
     **kwargs
 ):
+    limits = score.limits
     if limits:
         ax.set_ylim(limits[0], limits[1])
 
@@ -24,16 +23,16 @@ def plot_multiple_scores_in_one(
     axs: tuple[plt.Axes],
     scores: list[ProteomewidePerResidueMetric],
     uniprot_id: str,
-    # TODO: scores should keep track of their limits/colors themselves
-    limits: dict[str: tuple[float, float]],
-    colors: dict[str: str],
+    colors: list[str],
 ):
+    if len(scores) != len(colors):
+        raise ValueError(f"not enough colors supplied (delivered: {len(colors)}, expected: {len(scores)})")
+
     df = pd.DataFrame({score.metric_name: score[uniprot_id] for score in scores})
-    for score, ax in zip(scores, axs):
+    for score, ax, color in zip(scores, axs, colors):
         ax.set_xlim(0, len(score[uniprot_id]))
-        if score.metric_name in limits and limits[score.metric_name]:
-            ax.set_ylim(*limits[score.metric_name])
-        color = colors[score.metric_name] if score.metric_name in colors else None
+        if score.limits:
+            ax.set_ylim(*score.limits)
         sns.lineplot(data=df, x=df.index, y=score.metric_name, ax=ax, color=color)
 
 

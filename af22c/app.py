@@ -28,24 +28,9 @@ if __name__ == "__main__":
 
     """## Per-protein metrics"""
 
-    metric_names = [plddts.metric_name, seths.metric_name, neffs.metric_name, neffs_naive.metric_name]
-
-    # TODO move limits and colors to metric classes
-    limits = {
-        plddts.metric_name: (0, 100),
-        seths.metric_name: (-20, 20),
-        neffs.metric_name: None,
-        neffs_naive.metric_name: None,
-    }
-    colors = {
-        plddts.metric_name: "blue",
-        seths.metric_name: "orange",
-        neffs.metric_name: "green",
-        neffs_naive.metric_name: "brown",
-    }
-    for score, column in zip(correlation.scores, st.columns(4)):
+    colors = ["blue", "orange", "green", "brown"]
+    for score, column, color in zip(correlation.scores, st.columns(4), colors):
         metric_name = score.metric_name
-        color = colors[metric_name]
         with column:
             f"""### {metric_name}"""
 
@@ -55,13 +40,13 @@ if __name__ == "__main__":
             fig, ax = plt.subplots()
             fig.set_size_inches(0.5, 2.5)
 
-            plot_per_protein_score_distribution(ax, score, prot_id, limits[metric_name], color=color)
+            plot_per_protein_score_distribution(ax, score, prot_id, color=color)
 
             st.pyplot(fig)
 
     """## Per-residue scores"""
     fig, axs = plt.subplots(nrows=4, figsize=(8, 8))
-    plot_multiple_scores_in_one(axs, correlation.scores, prot_id, limits, colors)
+    plot_multiple_scores_in_one(axs, correlation.scores, prot_id, colors)
     st.pyplot(fig)
 
     """

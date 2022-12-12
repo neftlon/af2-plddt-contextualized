@@ -19,6 +19,9 @@ from af22c.score_max_z import calc_max_z
 from af22c.utils import get_raw_proteome_name
 
 
+LimitsType = tuple[float | int | None, float | int | None] | None
+
+
 class Proteome(ABC):
     @abstractmethod
     def get_uniprot_ids(self) -> set[str]:
@@ -35,15 +38,15 @@ class ProteomewidePerProteinMetric(Proteome):
         ...
 
 
-@dataclass
 class ProteomewidePerResidueMetric(Proteome):
-    metric_name: str = field(init=False)
-
-    def __post_init__(self):
-        self.init_metric_name()
-
+    @property
     @abstractmethod
-    def init_metric_name(self):
+    def metric_name(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
+    def limits(self) -> LimitsType:
         ...
 
     @abstractmethod
@@ -497,8 +500,13 @@ class ProteomeScores(ProteomewidePerResidueMetric):
 
 
 class ProteomeNeffs(ProteomeScores):
-    def init_metric_name(self):
-        self.metric_name = "Neff"
+    @property
+    def metric_name(self):
+        return "Neff"
+
+    @property
+    def limits(self) -> LimitsType:
+        return None
 
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[int]:
@@ -508,8 +516,13 @@ class ProteomeNeffs(ProteomeScores):
 
 
 class ProteomeNeffsNaive(ProteomeScores):
-    def init_metric_name(self):
-        self.metric_name = "Neff naive"
+    @property
+    def metric_name(self):
+        return "Neff naive"
+
+    @property
+    def limits(self) -> LimitsType:
+        return None
 
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[int]:
@@ -519,8 +532,13 @@ class ProteomeNeffsNaive(ProteomeScores):
 
 
 class ProteomeMaxZs(ProteomeScores):
-    def init_metric_name(self):
-        self.metric_name = "maxZ"
+    @property
+    def metric_name(self):
+        return "maxZ"
+
+    @property
+    def limits(self) -> LimitsType:
+        return None
 
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[float]:
@@ -548,8 +566,13 @@ class ProteomePLDDTs(ProteomewidePerResidueMetric):
         with path.open() as p:
             return cls(json.load(p))
 
-    def init_metric_name(self):
-        self.metric_name = "pLDDT"
+    @property
+    def metric_name(self):
+        return "pLDDT"
+
+    @property
+    def limits(self) -> LimitsType:
+        return 0, 100
 
     def get_uniprot_ids(self):
         return set(self.plddts_by_id.keys())
@@ -586,8 +609,13 @@ class ProteomeSETHPreds(ProteomewidePerResidueMetric):
                 proteome_seth_preds[uniprot_id] = disorder
             return cls(proteome_seth_preds)
 
-    def init_metric_name(self):
-        self.metric_name = "pred. dis."
+    @property
+    def metric_name(self):
+        return "pred. dis."
+
+    @property
+    def limits(self) -> LimitsType:
+        return -20.0, 20.0
 
     def get_uniprot_ids(self):
         return set(self.seth_preds_by_id.keys())
