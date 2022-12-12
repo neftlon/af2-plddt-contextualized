@@ -1,6 +1,8 @@
 import io
 import os
 import tarfile
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -699,3 +701,36 @@ class ProteomeCorrelation:
         p = sns.heatmap(p_corr_mean, annot=True, mask=mask, cmap=cmap, vmin=-1, vmax=1)
         p.get_figure().savefig(fig_path)
         logging.info(f"saved figure to {fig_path}")
+
+        # collect all per residue scores over the given subset of the proteome
+        obs_dict = {score.metric_name: [] for score in self.scores}
+        for prot_id in prot_ids:
+            for score in self.scores:
+                obs_dict[score.metric_name] += score[prot_id]
+        obs_df = pd.DataFrame(obs_dict)
+
+        # draw hist plot
+        fig_path = Path(data_dir) / f"{name}_all_proteins_hist.png"
+        p = sns.pairplot(obs_df, corner=True, kind='hist')
+        p.savefig(fig_path)
+        logging.info(f"saved figure to {fig_path}.")
+
+        # draw correlation boxplots
+        n = len(self.scores)
+        fig, axs = plt.subplots(n, n)
+        for i in range(1, n):
+            for j in range(0, i):
+                sns.boxplot(p_corr_array[:, i, j].flatten(), ax=axs[i, j])
+        fig_path = Path(data_dir) / f"{name}_pearson_corr_boxplot.png"
+        fig.savefig(fig_path)
+        logging.info(f"saved figure to {fig_path}.")
+
+        # draw correlation histograms
+        n = len(self.scores)
+        fig, axs = plt.subplots(n, n)
+        for i in range(1, n):
+            for j in range(0, i):
+                sns.histplot(p_corr_array[:, i, j].flatten(), ax=axs[i, j])
+        fig_path = Path(data_dir) / f"{name}_pearson_corr_hist.png"
+        fig.savefig(fig_path)
+        logging.info(f"saved figure to {fig_path}.")
