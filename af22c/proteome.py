@@ -380,10 +380,13 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         """
         self.msa_size_provider.precompute_msa_sizes()
 
-    def plot_msa_sizes(self, data_dir="data", name="human"):
+    def plot_msa_sizes(self, data_dir="data", name="human", uniprot_ids: set[str] = None):
         data_dir = Path(data_dir)
         fig_path = data_dir / f"{name}_msa_size_scatter.png"
         msa_sizes = self.get_msa_sizes()
+        if uniprot_ids:
+            # TODO raise exception if not all uniprot IDs are in msa_sizes as this can lead to unexpected behaviour
+            msa_sizes = msa_sizes.loc[msa_sizes['uniprot_id'].isin(uniprot_ids)]
         sns.set_style("whitegrid")
         p = sns.jointplot(data=msa_sizes, x="query_length", y="sequence_count")
         p.set_axis_labels(
