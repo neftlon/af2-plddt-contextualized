@@ -20,13 +20,13 @@ if __name__ == "__main__":
     seths = ProteomeSETHPreds.from_file(args.seth_path)
     maxzs = ProteomeMaxZs.from_directory(args.maxzs_path)
     msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_dir)
-    correlation = ProteomeCorrelation([neffs, neffs_naive, plddts, seths, maxzs], msa_sizes)
+    correlation = ProteomeCorrelation([plddts, seths, neffs, neffs_naive, maxzs], msa_sizes)
 
     correlation.plot_mean_pearson_corr_mat(
         args.data_dir,
         "HUMAN",
         min_q_len=10,
-        max_q_len=5000,
+        max_q_len=300,
         min_n_seq=100,
-        max_n_seq=5000,
+        max_n_seq=2000,
     )
