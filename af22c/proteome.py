@@ -385,7 +385,8 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         fig_path = data_dir / f"{name}_msa_size_scatter.png"
         msa_sizes = self.get_msa_sizes()
         if uniprot_ids:
-            # TODO raise exception if not all uniprot IDs are in msa_sizes as this can lead to unexpected behaviour
+            if uniprot_ids - set(msa_sizes['uniprot_id']):
+                raise ValueError('Not all specified uniprot ids where found in the precomputed msa sizes file.')
             msa_sizes = msa_sizes.loc[msa_sizes['uniprot_id'].isin(uniprot_ids)]
         sns.set_style("whitegrid")
         p = sns.jointplot(data=msa_sizes, x="query_length", y="sequence_count")
@@ -634,12 +635,12 @@ class ProteomeCorrelation:
     def get_uniprot_ids(self) -> set[str]:
         return self._get_length_consistent_ids()
 
-    def _generate_observation_df(self, uniprot_id) -> pd.DataFrame:
+    def generate_observation_df(self, uniprot_id) -> pd.DataFrame:
         obs_dict = {score.metric_name: score[uniprot_id] for score in self.scores}
         return pd.DataFrame(obs_dict)
 
     def get_pearson_corr(self, uniprot_id) -> pd.DataFrame:
-        obs_df = self._generate_observation_df(uniprot_id)
+        obs_df = self.generate_observation_df(uniprot_id)
         return obs_df.corr()
 
     def plot_mean_pearson_corr_mat(
