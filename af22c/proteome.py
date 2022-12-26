@@ -529,6 +529,21 @@ class ProteomeNeffsNaive(ProteomeScores):
         return list(map(lambda f: round(f), neffs_naive.tolist()))
 
 
+class ProteomeNeffsHHsuite(ProteomeScores):
+    @property
+    def metric_name(self):
+        return "Neff hhsuite"
+
+    @property
+    def limits(self) -> LimitsType:
+        return None
+
+    @staticmethod
+    def compute_scores(msa: MultipleSeqAlign) -> list[int]:
+        raise NotImplementedError("HHsuite integration not yet implemented."
+                                  "Please precompute and provide as directory.")
+
+
 class ProteomeMaxZs(ProteomeScores):
     @property
     def metric_name(self):
