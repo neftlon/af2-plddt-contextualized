@@ -10,16 +10,14 @@ The commands described in the following subchapters are meant to be executed in 
 
 ### 0. Environment
 
-The project uses Python for scripts. The root directory contains a `requirements.txt` file that can be used to create an
-appropriate environment. For instance, `python3 -m pip install -r requirement.txt` installs the dependencies in the
-current Python environment.
+The project uses Python for scripts. The root directory contains a `environment.yml` file that can be used to create an
+appropriate environment.
 
 It is recommended to use [conda](https://docs.conda.io/en/latest/), you can create a new requirement with all dependencies installed like the following:
 
 ```bash
-conda create --name env python=3.10
+conda create --file=environment.yml
 conda activate env
-pip install -r requirements.txt
 ```
 
 Note that our project requires Python 3.10.
