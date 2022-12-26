@@ -223,13 +223,11 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         def __getitem__(self, uniprot_id) -> tuple[int, int]:
             size = self.msa_sizes[self.msa_sizes["uniprot_id"] == uniprot_id]
             n_seq, q_len = size["sequence_count"], size["query_length"]
-            if not isinstance(n_seq, int) or not isinstance(q_len, int):
+            if not len(n_seq) == 1 or not len(q_len) == 1:
                 raise ValueError(
-                    f"The type of the dimensions is ({type(n_seq)}, {type(q_len)} and not (int, int). "
-                    f"Maybe the uniprot_id {uniprot_id} appears multiple times in the "
-                    f"msa sizes .csv file?"
+                    f"Not exactly one entry for uniprot_id {uniprot_id} in the msa sizes .csv file."
                 )
-            return n_seq, q_len
+            return int(n_seq), int(q_len)
 
         def get_uniprot_ids(self) -> set[str]:
             return set(self.msa_sizes["uniprot_id"])
