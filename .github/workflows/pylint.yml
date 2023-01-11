@@ -23,4 +23,5 @@ jobs:
         pip install pylint
     - name: Analysing the code with pylint
       run: |
+        conda activate tester-env
         pylint $(git ls-files '*.py')
