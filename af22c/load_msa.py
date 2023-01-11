@@ -17,7 +17,7 @@ import numpy as np
 from itertools import repeat, chain
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
-from typing import Callable, IO
+from typing import Callable, IO, Optional
 from pathlib import Path
 from collections import defaultdict
 
@@ -26,7 +26,6 @@ from af22c.utils import warn_once, as_handle
 MsaMatchAttribs = namedtuple(
     "MsaMatchAttribs",
     [
-        "target_id",
         "aln_score",
         "seq_identity",
         "eval",
@@ -49,8 +48,8 @@ class MsaMatch:
     """
     MsaMatch object containing the parsed header field in attribs, the original sequence in orig_seq    and the sequence without insertions.
     """
-
-    attribs: MsaMatchAttribs
+    target_id: str
+    attribs: Optional[MsaMatchAttribs]
     orig_seq: Seq
     aligned_seq: Seq = field(init=False)
 
@@ -140,19 +139,26 @@ def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
     logging.info("loading MSA")
     for idx, seq in tqdm(enumerate(seqs[1:]), total=len(seqs) - 1):
         raw_attribs = seq.description.split("\t")
+        target_id, *remaining_attribs = raw_attribs
+
         # TODO(johannes): Sometimes (for instance in Q9A7K5.a3m) the MSA file contains the same (presumable) query
         # sequence at least twice. What purpose does this serve? The code below currently skips these duplications, but
         # this is probably just wrong behavior.
-        if len(raw_attribs) != len(MsaMatchAttribs._fields):
+        if target_id == query.id:
+            logging.warning("query_id {} appearing for a second time in .a3m file, skipping sequence" % query.id)
+            continue
+
+        attribs = None
+        if len(raw_attribs) == (len(MsaMatchAttribs._fields) - 1):  # -1 because the target_id is not part of the attributes
+            attribs = MsaMatchAttribs(*remaining_attribs)
+        else:
             logging.warning(
                 f"a3m file contains a match at index {idx} (of {len(seqs)} matches) that contains not the "
                 f"required (={len(MsaMatchAttribs._fields)}) number of fields: {len(raw_attribs)}. "
                 f'match description: "{seq.description}"'
             )
-            continue
 
-        attribs = MsaMatchAttribs(*raw_attribs)
-        match = MsaMatch(attribs, seq.seq)
+        match = MsaMatch(target_id, attribs, seq.seq)
         matches.append(match)
     return query.id, query.seq, matches
 
@@ -299,6 +305,10 @@ def get_depth(query, matches: list[MsaMatch], seq_id=0.8):
         for i, m in enumerate(msa):
             n_non_gaps[c] += int(m[c] != "-") * inv_n_eff_weights[i]
     return n_non_gaps
+
+
+def get_depth_paris():
+    pass
 
 
 def get_depth_naive(query, matches: list[MsaMatch]):
