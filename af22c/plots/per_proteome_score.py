@@ -5,23 +5,54 @@ import numpy as np
 from af22c.proteome import ProteomeCorrelation
 
 
+def style_plots(axs, x_labels, y_labels, x_ticks, y_ticks, x_limits, y_limits):
+    n = len(axs)
+    for i in range(0, n):
+        for j in range(0, n):
+            if i > j:
+                axs[i, j].set_xticklabels([])
+                axs[i, j].set_ylim(y_limits)
+                axs[i, j].set_xlim(x_limits)
+                axs[i, j].set_yticklabels([])
+                axs[i, j].set_ylabel('')
+            else:
+                axs[i, j].axis('off')
+
+    # Add x labels to the bottom of the matrix
+    for i in range(n):
+        axs[-1, i].set_xlabel(x_labels[i])
+        if x_ticks:
+            axs[-1, i].set_xticks(x_ticks)
+            axs[-1, i].set_xticklabels(x_ticks)
+
+    # Add y labels to the left of the matrix and ticks to the leftmost plot
+    for i in range(n):
+        axs[i, 0].set_ylabel(y_labels[i])
+        if y_ticks:
+            axs[i, 0].set_yticks(y_ticks)
+            axs[i, 0].set_yticklabels(y_ticks)
+
+
 def plot_correlation_boxplots(corr: ProteomeCorrelation):
-    p_corr_array, _ = corr.get_pearson_corr_stack()
+    p_corr_array, df_index = corr.get_pearson_corr_stack()
     n = len(corr.scores)
     fig, axs = plt.subplots(n, n)
     for i in range(1, n):
         for j in range(0, i):
-            sns.boxplot(p_corr_array[:, i, j].flatten(), ax=axs[i, j])
+            sns.boxplot(p_corr_array[:, i, j].flatten(), ax=axs[i, j], width=0.5)
+
+    style_plots(axs, df_index[0], df_index[1], None, [-1, 0, 1], None, (-1, 1))
     return fig
 
 
 def plot_correlation_histograms(corr: ProteomeCorrelation):
-    p_corr_array, _ = corr.get_pearson_corr_stack()
+    p_corr_array, df_index = corr.get_pearson_corr_stack()
     n = len(corr.scores)
     fig, axs = plt.subplots(n, n)
     for i in range(1, n):
         for j in range(0, i):
             sns.histplot(p_corr_array[:, i, j].flatten(), ax=axs[i, j])
+    style_plots(axs, df_index[0], df_index[1], [-1, 0, 1], None, (-1, 1), None)
     return fig
 
 
