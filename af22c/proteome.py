@@ -731,10 +731,8 @@ class ProteomeCorrelation:
         obs_df = self.generate_observation_df(uniprot_id)
         return obs_df.corr()
 
-    def plot_mean_pearson_corr_mat(
+    def get_pearson_corr_stack(
         self,
-        data_dir,
-        name,
         min_q_len=0,
         max_q_len=np.inf,
         min_n_seq=0,
@@ -753,7 +751,7 @@ class ProteomeCorrelation:
             # in `scores`
             if self.msa_sizes:
                 # we found a `ProteomeMSASizes` score, use it to only retain protein IDs that
-                # lay within the given ranges.
+                # lie within the given ranges.
                 prot_ids &= self.msa_sizes.get_uniprot_ids_in_size(
                     min_q_len=min_q_len,
                     max_q_len=max_q_len,
@@ -778,51 +776,8 @@ class ProteomeCorrelation:
             if not df_index:
                 df_index = (p_corr.index, p_corr.columns)
             p_corr_list.append(p_corr.to_numpy())
+        # TODO replace p_corr_array and df_index by a multiindex dataframe
         p_corr_array = np.stack(p_corr_list)
-        # TODO Fix NaN values when including small msas, problem probably in computation
-        # TODO return the following DataFrame and do plotting somewhere else
-        p_corr_mean = pd.DataFrame(
-            np.mean(p_corr_array, axis=0), index=df_index[0], columns=df_index[1]
-        )
 
-        # draw figure
-        fig_path = Path(data_dir) / f"{name}_mean_pearson_corr.png"
-        sns.set_style("whitegrid")
-        mask = np.triu(np.ones_like(p_corr_mean, dtype=bool))
-        cmap = sns.diverging_palette(230, 20, as_cmap=True)
-        p = sns.heatmap(p_corr_mean, annot=True, mask=mask, cmap=cmap, vmin=-1, vmax=1)
-        p.get_figure().savefig(fig_path)
-        logging.info(f"saved figure to {fig_path}")
-
-        # collect all per residue scores over the given subset of the proteome
-        obs_dict = {score.metric_name: [] for score in self.scores}
-        for prot_id in prot_ids:
-            for score in self.scores:
-                obs_dict[score.metric_name] += score[prot_id]
-        obs_df = pd.DataFrame(obs_dict)
-
-        # draw hist plot
-        fig_path = Path(data_dir) / f"{name}_all_proteins_hist.png"
-        p = sns.pairplot(obs_df, corner=True, kind='hist')
-        p.savefig(fig_path)
-        logging.info(f"saved figure to {fig_path}.")
-
-        # draw correlation boxplots
-        n = len(self.scores)
-        fig, axs = plt.subplots(n, n)
-        for i in range(1, n):
-            for j in range(0, i):
-                sns.boxplot(p_corr_array[:, i, j].flatten(), ax=axs[i, j])
-        fig_path = Path(data_dir) / f"{name}_pearson_corr_boxplot.png"
-        fig.savefig(fig_path)
-        logging.info(f"saved figure to {fig_path}.")
-
-        # draw correlation histograms
-        n = len(self.scores)
-        fig, axs = plt.subplots(n, n)
-        for i in range(1, n):
-            for j in range(0, i):
-                sns.histplot(p_corr_array[:, i, j].flatten(), ax=axs[i, j])
-        fig_path = Path(data_dir) / f"{name}_pearson_corr_hist.png"
-        fig.savefig(fig_path)
-        logging.info(f"saved figure to {fig_path}.")
+        # TODO Add caching of p_corr_array in order to speed up plotting
+        return p_corr_array, df_index

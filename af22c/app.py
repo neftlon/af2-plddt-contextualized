@@ -72,7 +72,36 @@ if __name__ == "__main__":
     if proteome_wide:
         n_mismatch_res = 0  # TODO: obtain this from proteome module
 
-        # TODO: add very cool heatmap plots
+        """
+        ## Proteome wide metrics
+        """
+
+        """
+        ## Correlation mean
+        """
+        fig, ax = plt.subplots()
+        plot_correlation_means(ax, correlation)
+        fig.tight_layout()
+        st.pyplot(fig)
+
+        """
+        ### Correlation distribution
+        """
+        fig = plot_correlation_boxplots(correlation)
+        fig.tight_layout()
+        st.pyplot(fig)
+
+        fig = plot_correlation_histograms(correlation)
+        fig.tight_layout()
+        st.pyplot(fig)
+
+        """
+        ### Scatter plot of scores over all residues in the proteome
+        """
+        fig = plot_whole_dataset_scatter(correlation)
+        fig.tight_layout()
+        st.pyplot(fig)
+
         """
         ### Disregarded proteins
         """
