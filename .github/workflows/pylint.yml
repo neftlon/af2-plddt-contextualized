@@ -20,10 +20,9 @@ jobs:
       run: |
         conda env update --file environment.yml --prune
         pip install pylint
-    - name: Debug print conda stats
+    - name: Analysing the code with pylint
       run: |
         conda info
         conda list
-    - name: Analysing the code with pylint
-      run: |
+        pip freeze
         pylint $(git ls-files '*.py')
