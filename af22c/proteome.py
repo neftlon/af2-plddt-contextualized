@@ -48,6 +48,11 @@ class ProteomewidePerResidueMetric(Proteome):
     def limits(self) -> LimitsType:
         ...
 
+    @property
+    @abstractmethod
+    def color(self) -> str:
+        ...
+
     @abstractmethod
     def __getitem__(self, uniprot_id: str) -> list[float | int]:
         """Return a list of scores (per-residue/AA) for a given UniProt identifier."""
@@ -524,6 +529,10 @@ class ProteomeNeffs(ProteomeScores):
     def limits(self) -> LimitsType:
         return None
 
+    @property
+    def color(self) -> str:
+        return "green"
+
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[int]:
         # NOTE: since Neff scores usually are in the area of 1k to 10k, rounding to `int` here should be sufficient
@@ -539,6 +548,10 @@ class ProteomeNeffsNaive(ProteomeScores):
     @property
     def limits(self) -> LimitsType:
         return None
+
+    @property
+    def color(self) -> str:
+        return "brown"
 
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[int]:
@@ -556,6 +569,10 @@ class ProteomeNeffsHHsuite(ProteomeScores):
     def limits(self) -> LimitsType:
         return None
 
+    @property
+    def color(self) -> str:
+        return "red"
+
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[int]:
         raise NotImplementedError("HHsuite integration not yet implemented."
@@ -570,6 +587,10 @@ class ProteomeMaxZs(ProteomeScores):
     @property
     def limits(self) -> LimitsType:
         return None
+
+    @property
+    def color(self) -> str:
+        return "yellow"
 
     @staticmethod
     def compute_scores(msa: MultipleSeqAlign) -> list[float]:
@@ -604,6 +625,10 @@ class ProteomePLDDTs(ProteomewidePerResidueMetric):
     @property
     def limits(self) -> LimitsType:
         return 0, 100
+
+    @property
+    def color(self) -> str:
+        return "blue"
 
     def get_uniprot_ids(self):
         return set(self.plddts_by_id.keys())
@@ -647,6 +672,10 @@ class ProteomeSETHPreds(ProteomewidePerResidueMetric):
     @property
     def limits(self) -> LimitsType:
         return -20.0, 20.0
+
+    @property
+    def color(self) -> str:
+        return "orange"
 
     def get_uniprot_ids(self):
         return set(self.seth_preds_by_id.keys())

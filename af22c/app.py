@@ -11,10 +11,11 @@ if __name__ == "__main__":
     proteome_name = "UP000005640_9606"
     neffs = ProteomeNeffs.from_directory(f"data/cluster/{proteome_name}/neffs")
     neffs_naive = ProteomeNeffsNaive.from_directory(f"data/cluster/{proteome_name}/neffs_naive")
+    neffs_hhsuite = ProteomeNeffsHHsuite.from_directory(f"data/cluster/{proteome_name}/neffs_hhsuite")
     plddts = ProteomePLDDTs.from_file(f"data/{proteome_name}_HUMAN_v3_plddts_fltrd.json")
     seths = ProteomeSETHPreds.from_file("data/Human_SETH_preds.txt")
     msa_sizes = ProteomeMSASizes.from_file(f"data/cluster/{proteome_name}_msa_size.csv")
-    correlation = ProteomeCorrelation([plddts, seths, neffs, neffs_naive], msa_sizes)
+    correlation = ProteomeCorrelation([plddts, seths, neffs, neffs_naive, neffs_hhsuite], msa_sizes)
 
     # look into the overlap between the UniProt identifiers of the source datasets
     shared_prot_ids = correlation.get_uniprot_ids()
@@ -28,8 +29,7 @@ if __name__ == "__main__":
 
     """## Per-protein metrics"""
 
-    colors = ["blue", "orange", "green", "brown"]
-    for score, column, color in zip(correlation.scores, st.columns(4), colors):
+    for score, column in zip(correlation.scores, st.columns(len(correlation.scores))):
         metric_name = score.metric_name
         with column:
             f"""### {metric_name}"""
@@ -40,21 +40,19 @@ if __name__ == "__main__":
             fig, ax = plt.subplots()
             fig.set_size_inches(0.5, 2.5)
 
-            plot_per_protein_score_distribution(ax, score, prot_id, color=color)
+            plot_per_protein_score_distribution(ax, score, prot_id)
 
             st.pyplot(fig)
 
     """## Per-residue scores"""
-    fig, axs = plt.subplots(nrows=4, figsize=(8, 8))
-    plot_multiple_scores_in_one(axs, correlation.scores, prot_id, colors)
+    fig, axs = plt.subplots(nrows=len(correlation.scores), figsize=(8, len(correlation.scores) * 2))
+    plot_multiple_scores_in_one(axs, correlation.scores, prot_id)
     st.pyplot(fig)
 
     """
     ## Correlation matrix
     
     Pairwise Pearson correlation coefficient between two values.
-    
-    White means a correlation value of `1.0`, darker patches mean less correlation.
     
     Values are rounded to two digits.
     """
@@ -65,7 +63,7 @@ if __name__ == "__main__":
     st.pyplot(fig)
 
     """
-    ## Pairwise scatterplots of all metrics
+    ## Pairwise scatter plots of all metrics
     """
     fig = plot_pairwise_scatter(correlation, prot_id)
     fig.tight_layout()

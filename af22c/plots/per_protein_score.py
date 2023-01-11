@@ -16,24 +16,20 @@ def plot_per_protein_score_distribution(
         ax.set_ylim(limits[0], limits[1])
 
     df = pd.DataFrame({score.metric_name: score[uniprot_id]})
-    sns.boxplot(data=df, y=score.metric_name, **kwargs)
+    sns.boxplot(data=df, y=score.metric_name, color=score.color, **kwargs)
 
 
 def plot_multiple_scores_in_one(
     axs: tuple[plt.Axes],
     scores: list[ProteomewidePerResidueMetric],
-    uniprot_id: str,
-    colors: list[str],
+    uniprot_id: str
 ):
-    if len(scores) != len(colors):
-        raise ValueError(f"not enough colors supplied (delivered: {len(colors)}, expected: {len(scores)})")
-
     df = pd.DataFrame({score.metric_name: score[uniprot_id] for score in scores})
-    for score, ax, color in zip(scores, axs, colors):
+    for score, ax in zip(scores, axs):
         ax.set_xlim(0, len(score[uniprot_id]))
         if score.limits:
             ax.set_ylim(*score.limits)
-        sns.lineplot(data=df, x=df.index, y=score.metric_name, ax=ax, color=color)
+        sns.lineplot(data=df, x=df.index, y=score.metric_name, ax=ax, color=score.color)
 
 
 def plot_pairwise_correlation(ax: plt.Axes, corr: ProteomeCorrelation, uniprot_id: str):
