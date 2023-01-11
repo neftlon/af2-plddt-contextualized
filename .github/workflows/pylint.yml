@@ -22,6 +22,7 @@ jobs:
         pip install pylint
     - name: Analysing the code with pylint
       run: |
+        conda activate test
         conda info
         conda list
         pip freeze
