@@ -10,14 +10,13 @@ from dataclasses import dataclass, field
 from tqdm import tqdm
 import logging
 from pathlib import Path
-from typing import Generator, Any, Callable
+from typing import Generator, Any, Callable, IO
 import json
 from abc import abstractmethod, ABC
 
 from af22c.load_msa import MultipleSeqAlign
 from af22c.score_max_z import calc_max_z
-from af22c.utils import get_raw_proteome_name
-
+from af22c.utils import get_raw_proteome_name, as_handle
 
 LimitsType = tuple[float | int | None, float | int | None] | None
 
@@ -73,6 +72,10 @@ class ProteomeMSAs(Proteome):
             ...
 
         @abstractmethod
+        def get_raw_msa_by_id(self, uniprot_id: str) -> str:
+            ...
+
+        @abstractmethod
         def get_msas(self) -> Generator[MultipleSeqAlign, None, None]:
             ...
 
@@ -91,6 +94,10 @@ class ProteomeMSAs(Proteome):
 
         def get_by_id(self, uniprot_id: str) -> MultipleSeqAlign:
             return MultipleSeqAlign.from_a3m(self.msa_path / f"{uniprot_id}.a3m")
+
+        def get_raw_msa_by_id(self, uniprot_id: str) -> str:
+            with as_handle(self.msa_path / f"{uniprot_id}.a3m") as a3m:
+                return a3m.read()
 
         def get_msas(self) -> Generator[MultipleSeqAlign, None, None]:
             for uniprot_id in tqdm(self.get_uniprot_ids()):
@@ -113,6 +120,13 @@ class ProteomeMSAs(Proteome):
         def __post_init__(self):
             # TODO: not all archive files have the same layout, make this parameterizable
             self.a3m_subdir = Path(self.name) / "msas"
+
+        def get_raw_msa_by_id(self, uniprot_id: str) -> str:
+            with tarfile.open(self.msa_path) as tar:
+                a3m_filename = os.path.join(self.a3m_subdir, f"{uniprot_id}.a3m")
+                a3m = tar.extractfile(a3m_filename)
+                with io.TextIOWrapper(a3m, encoding="utf-8") as a3m:
+                    return a3m.read()
 
         def _extract_msa(self, tar: tarfile.TarFile, uniprot_id: str):
             a3m_filename = os.path.join(self.a3m_subdir, f"{uniprot_id}.a3m")
@@ -182,6 +196,10 @@ class ProteomeMSAs(Proteome):
 
     def __getitem__(self, uniprot_id: str) -> MultipleSeqAlign:
         return self.msa_provider.get_by_id(uniprot_id)
+
+    def get_raw_msa_by_id(self, uniprot_id: str) -> str:
+        """Returns the loaded .a3m file for a given protein."""
+        return self.msa_provider.get_raw_msa_by_id(uniprot_id)
 
     def get_msas(self) -> Generator[MultipleSeqAlign, None, None]:
         return self.msa_provider.get_msas()
@@ -259,12 +277,12 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
             self,
             proteome_msas: ProteomeMSAs,
             cache_file_path: Path,
-            write_csv_on_demand: bool,
+            compute_csv_on_demand: bool,
         ):
             # NOTE: this field need to be set BEFORE initializing the superclass because the overwritten `load` method
             # of THIS subclass uses the attribute. otherwise, the `variable` will be referenced before assignment and
             # everything goes down the drain.
-            self.write_csv_on_demand = write_csv_on_demand
+            self.compute_csv_on_demand = compute_csv_on_demand
 
             super().__init__(cache_file_path)
             self.proteome_msas = proteome_msas
@@ -273,7 +291,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
             try:
                 super().load()
             except FileNotFoundError:
-                if self.write_csv_on_demand:
+                if self.compute_csv_on_demand:
                     # CSV file was not found, create a new one
                     self._store_msa_sizes([])  # write at least the header
                     super().load()
@@ -281,7 +299,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
                     raise  # we cannot help -- sorry, let the caller handle the exception
 
         def _store_msa_sizes(self, msa_sizes: list[list]):
-            if not self.write_csv_on_demand:
+            if not self.compute_csv_on_demand:
                 raise IOError(
                     f"Writing CSV file {self.filepath} is not allowed, write_csv_on_demand flag was set to False!"
                 )
@@ -304,7 +322,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
                 return super().__getitem__(uniprot_id)
             except ValueError:
                 q_len, n_seq = self.compute_msa_size(uniprot_id)
-                if self.write_csv_on_demand:
+                if self.compute_csv_on_demand:
                     self._store_msa_sizes([[uniprot_id, q_len, n_seq]])
                     super().load()  # reload CSV for future calls to __getitem__
                 else:
@@ -343,7 +361,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
 
     @classmethod
     def from_msas(
-        cls, proteome_msas: ProteomeMSAs, data_dir="data", write_csv_on_demand=True
+        cls, proteome_msas: ProteomeMSAs, data_dir="data", compute_csv_on_demand=True
     ):
         # TODO: figure out whether we want to pass the data_dir here as a parameter
         proteome_name = proteome_msas.get_name()
@@ -353,7 +371,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
             cls.ComputingMSASizeProvider(
                 proteome_msas,
                 cache_file_path,
-                write_csv_on_demand=write_csv_on_demand,
+                compute_csv_on_demand=compute_csv_on_demand,
             )
         )
 
