@@ -5,11 +5,11 @@ import numpy as np
 from af22c.proteome import ProteomeCorrelation
 
 
-def style_plots(axs, x_labels, y_labels, x_ticks, y_ticks, x_limits, y_limits):
+def style_plots(axs, x_labels, y_labels, x_ticks=None, y_ticks=None, x_limits=None, y_limits=None):
     n = len(axs)
     for i in range(0, n):
         for j in range(0, n):
-            if i > j:
+            if i >= j:
                 axs[i, j].set_xticklabels([])
                 axs[i, j].set_ylim(y_limits)
                 axs[i, j].set_xlim(x_limits)
@@ -27,7 +27,7 @@ def style_plots(axs, x_labels, y_labels, x_ticks, y_ticks, x_limits, y_limits):
 
     # Add y labels to the left of the matrix and ticks to the leftmost plot
     for i in range(n):
-        axs[i, 0].set_ylabel(y_labels[i])
+        axs[i, 0].set_ylabel(y_labels[i+1])  # +1, because the diagonal is not drawn
         if y_ticks:
             axs[i, 0].set_yticks(y_ticks)
             axs[i, 0].set_yticklabels(y_ticks)
@@ -36,23 +36,24 @@ def style_plots(axs, x_labels, y_labels, x_ticks, y_ticks, x_limits, y_limits):
 def plot_correlation_boxplots(corr: ProteomeCorrelation):
     p_corr_array, df_index = corr.get_pearson_corr_stack()
     n = len(corr.scores)
-    fig, axs = plt.subplots(n, n)
-    for i in range(1, n):
-        for j in range(0, i):
-            sns.boxplot(p_corr_array[:, i, j].flatten(), ax=axs[i, j], width=0.5)
+    fig, axs = plt.subplots(n-1, n-1)  # n-1, because the diagonal is not drawn
+    for i in range(0, n-1):
+        for j in range(0, i+1):
+            sns.boxplot(p_corr_array[:, i+1, j].flatten(), ax=axs[i, j], width=0.5)
 
-    style_plots(axs, df_index[0], df_index[1], None, [-1, 0, 1], None, (-1, 1))
+    style_plots(axs, df_index[0], df_index[1], y_ticks=[-1, 0, 1], y_limits=(-1, 1))
     return fig
 
 
 def plot_correlation_histograms(corr: ProteomeCorrelation):
     p_corr_array, df_index = corr.get_pearson_corr_stack()
     n = len(corr.scores)
-    fig, axs = plt.subplots(n, n)
-    for i in range(1, n):
-        for j in range(0, i):
-            sns.histplot(p_corr_array[:, i, j].flatten(), ax=axs[i, j])
-    style_plots(axs, df_index[0], df_index[1], [-1, 0, 1], None, (-1, 1), None)
+    fig, axs = plt.subplots(n-1, n-1)  # n-1, because the diagonal is not drawn
+    for i in range(0, n-1):
+        for j in range(0, i+1):
+            sns.histplot(p_corr_array[:, i+1, j].flatten(), ax=axs[i, j])
+
+    style_plots(axs, df_index[0], df_index[1], x_ticks=[-1, 0, 1], x_limits=(-1, 1))
     return fig
 
 
