@@ -17,12 +17,14 @@ jobs:
         auto-update-conda: true
         python-version: ${{ matrix.python-version }}
         environment-file: environment.yml
+        activate-environment: test
     - name: Install dependencies
+      shell: bash -el {0}
       run: |
         pip install pylint
     - name: Analysing the code with pylint
+      shell: bash -el {0}
       run: |
-        conda activate test
         conda info
         conda list
         pip freeze
