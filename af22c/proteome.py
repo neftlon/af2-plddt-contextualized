@@ -428,6 +428,9 @@ class ProteomeScores(ProteomewidePerResidueMetric):
     @dataclass
     class ScoresFromDirProvider:
         scores_dir: Path
+        # HACK: for some reason, the mmseqs scores are twice as long as necessary. this issue needs to be fixed, but
+        # hack allows for using the scores at all.
+        only_half_scores: bool = field(default=False)
 
         def get_uniprot_ids(self) -> set[str]:
             # Search path and extract IDs from filenames
@@ -437,17 +440,19 @@ class ProteomeScores(ProteomewidePerResidueMetric):
         def __getitem__(self, uniprot_id) -> list[float | int]:
             cache_path = self.scores_dir / f"{uniprot_id}.json"
             try:
-                return self._load_scores(cache_path)
+                with cache_path.open() as p:
+                    scores = json.load(p)
             except FileNotFoundError:
                 # TODO compute and store scores if not found
                 raise FileNotFoundError(
                     f"Score file for {uniprot_id} not found. Compute scores first!"
                 )
 
-        @staticmethod
-        def _load_scores(path: Path):
-            with path.open() as p:
-                return json.load(p)
+            # see declaration of `only_half_scores` for more details, this should not be needed!
+            if self.only_half_scores:
+                scores = scores[:len(scores) // 2]
+
+            return scores
 
         def compute_scores_by_id(self, uniprot_id: str, overwrite_scores=False):
             raise Exception(
@@ -456,11 +461,21 @@ class ProteomeScores(ProteomewidePerResidueMetric):
                 "`Proteome[SCORE NAME].from_msas`."
             )
 
-    @dataclass
     class ScoresFromProteomeProvider(ScoresFromDirProvider):
-        proteome_msas: ProteomeMSAs
-        write_scores_on_demand: bool
-        compute_scores_fn: Callable
+        def __init__(
+            self,
+            scores_dir: Path,
+            proteome_msas: ProteomeMSAs,
+            write_scores_on_demand: bool,
+            compute_scores_fn: Callable,
+            **kwargs,
+        ):
+            # NOTE: since the parent class has kwargs, this class cannot be a dataclass with arguments other than
+            # kwargs. but it needs its arguments, therefore it cannot be a dataclass.
+            super().__init__(scores_dir, **kwargs)
+            self.proteome_msas = proteome_msas
+            self.write_scores_on_demand = write_scores_on_demand
+            self.compute_scores_fn = compute_scores_fn
 
         def __getitem__(self, uniprot_id: str) -> list[float | int]:
             try:
@@ -491,8 +506,8 @@ class ProteomeScores(ProteomewidePerResidueMetric):
     score_provider: ScoresFromDirProvider
 
     @classmethod
-    def from_directory(cls, path: str):
-        return cls(cls.ScoresFromDirProvider(Path(path)))
+    def from_directory(cls, path: str, **kwargs):
+        return cls(cls.ScoresFromDirProvider(Path(path), **kwargs))
 
     @classmethod
     def from_msas(
@@ -577,6 +592,31 @@ class ProteomeNeffsHHsuite(ProteomeScores):
     def compute_scores(msa: MultipleSeqAlign) -> list[int]:
         raise NotImplementedError("HHsuite integration not yet implemented."
                                   "Please precompute and provide as directory.")
+
+
+class ProteomeNeffsMMseqs(ProteomeScores):
+    @property
+    def metric_name(self):
+        return "Neff mmseqs exp"
+
+    @property
+    def limits(self) -> LimitsType:
+        # obtained from https://github.com/soedinglab/MMseqs2/pull/647#issuecomment-1354160085
+        return None
+
+    @property
+    def color(self) -> str:
+        return "dodgerblue"
+
+    @staticmethod
+    def compute_scores(msa: MultipleSeqAlign) -> list[int]:
+        raise NotImplementedError("mmseqs integration not yet implemented."
+                                  "Please precompute and provide as directory.")
+
+    def __getitem__(self, uniprot_id):
+        # TODO: there may be a call to `exp` missing in the mmseqs implementation?
+        logscores = np.array(self.score_provider[uniprot_id])
+        return np.exp(logscores).tolist()
 
 
 class ProteomeMaxZs(ProteomeScores):
