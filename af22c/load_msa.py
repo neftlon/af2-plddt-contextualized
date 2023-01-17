@@ -145,7 +145,7 @@ def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
         # sequence at least twice. What purpose does this serve? The code below currently skips these duplications, but
         # this is probably just wrong behavior.
         if target_id == query.id:
-            logging.warning("query_id {} appearing for a second time in .a3m file, skipping sequence" % query.id)
+            logging.warning(f"query_id {query.id} appearing for a second time in .a3m file, skipping sequence")
             continue
 
         attribs = None
