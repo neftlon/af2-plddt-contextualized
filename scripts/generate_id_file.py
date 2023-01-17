@@ -31,19 +31,19 @@ if __name__ == "__main__":
     msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_file)
 
     if args.big_representative_only:
-        # Assumption 100 away from max doesn't make much of a difference
-        limits["min_n_seq"] = max(0, args.max_n_sequences - 100)
-        limits["min_q_len"] = max(0, args.max_query_length - 100)
-        uniprot_ids = msa_sizes.get_uniprot_ids_in_size(**limits)
-        if len(uniprot_ids) < 1:
-            raise ValueError("No MSA in this size range!")
-        representative = random.choice(tuple(uniprot_ids))
+        uniprot_ids = list(msa_sizes.get_uniprot_ids_in_size(**limits))  # cast to list to make it indexable
+        prot_sizes = np.array([msa_sizes[prot_id] for prot_id in uniprot_ids])
+
+        # Get the biggest representative
+        max_idx = np.argmax(prot_sizes[:, 0] * prot_sizes[:, 1])  # n_seq * q_len provides the "size" of the MSA
+
+        representative = uniprot_ids[max_idx]
         logging.info(
             f"Found representative MSA with "
             f"{msa_sizes[representative][1]} query length and "
             f"{msa_sizes[representative][0]} sequences."
         )
-        id_list = [representative]
+        id_list = pd.Series([representative])
     elif not math.isnan(args.random_sample_size):
         uniprot_ids = msa_sizes.get_uniprot_ids_in_size(**limits)
         if len(uniprot_ids) < args.random_sample_size:
