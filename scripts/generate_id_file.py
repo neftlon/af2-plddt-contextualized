@@ -16,10 +16,9 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--max_query_length", default=math.inf, type=int)
     parser.add_argument("-m", "--min_n_sequences", default=0, type=int)
     parser.add_argument("-k", "--min_query_length", default=0, type=int)
-    parser.add_argument("-b", "--big_representative_only", action="store_true",
+    parser.add_argument("-s", "--sample_size", default=None, type=int)
+    parser.add_argument("-b", "--biggest_only", action="store_true",
                         default=False)
-    parser.add_argument("-s", "--random_sample_size", default=math.nan,
-                        type=int)
     args = parser.parse_args()
 
     limits = {
@@ -29,41 +28,46 @@ if __name__ == "__main__":
         "max_n_seq": args.max_n_sequences
     }
     msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_file)
+    uniprot_ids = list(msa_sizes.get_uniprot_ids_in_size(**limits))
 
-    if args.big_representative_only:
-        uniprot_ids = list(msa_sizes.get_uniprot_ids_in_size(**limits))  # cast to list to make it indexable
-        prot_sizes = np.array([msa_sizes[prot_id] for prot_id in uniprot_ids])
+    if len(uniprot_ids) < 1:
+        raise ValueError("No MSAs found in size range.")
+    elif args.sample_size and len(uniprot_ids) < args.sample_size:
+        raise ValueError("Not enough MSAs in this size range!")
 
-        # Get the biggest representative
-        max_idx = np.argmax(prot_sizes[:, 0] * prot_sizes[:, 1])  # n_seq * q_len provides the "size" of the MSA
+    logging.info(
+        f"Found {len(uniprot_ids)} MSAs in size range {limits}."
+    )
 
-        representative = uniprot_ids[max_idx]
+    if args.biggest_only:
+        n = args.sample_size if args.sample_size else 1
+
+        # Load all MSA sizes into a DataFrame
+        size_by_id = {prot_id: msa_sizes[prot_id] for prot_id in uniprot_ids}
+        size_df = pd.DataFrame.from_dict(size_by_id, orient='index',
+                                         columns=['n_seq', 'q_len'])
+
+        # Find the biggest s MSAs
+        size_df["combined_size"] = size_df["n_seq"] * size_df["q_len"]
+        size_df.sort_values(by="combined_size", ascending=False, inplace=True)
+        size_df.drop(columns=["combined_size"], inplace=True)
+        uniprot_ids = size_df.index[:n].tolist()
+
         logging.info(
-            f"Found representative MSA with "
-            f"{msa_sizes[representative][1]} query length and "
-            f"{msa_sizes[representative][0]} sequences."
+            f"Selected {n} biggest MSA(s), with top size(s): \n"
+            f"{size_df.head(min(5, n))}"
         )
-        id_list = pd.Series([representative])
-    elif not math.isnan(args.random_sample_size):
-        uniprot_ids = msa_sizes.get_uniprot_ids_in_size(**limits)
-        if len(uniprot_ids) < args.random_sample_size:
-            raise ValueError("Not enough MSA in this size range!")
-        uniprot_ids = random.sample(list(uniprot_ids), args.random_sample_size)
+    elif args.sample_size:
+        uniprot_ids = random.sample(uniprot_ids, args.sample_size)
         prot_sizes = np.array([msa_sizes[prot_id] for prot_id in uniprot_ids])
-        logging.info(f"Selected a random sample with the following statistics: "
-                     f"mean query length: {prot_sizes[:, 1].mean():.2f}, "
-                     f"min query length: {prot_sizes[:, 1].min()}, "
-                     f"max query length: {prot_sizes[:, 1].max()}, "
-                     f"mean number of sequences: {prot_sizes[:, 0].mean():.2f}, "
-                     f"min number of sequences: {prot_sizes[:, 0].min()}, "
+        logging.info(f"Selected a random sample of size {args.sample_size} "
+                     f"with the following statistics:\n"
+                     f"mean query length: {prot_sizes[:, 1].mean():.2f},\n"
+                     f"min query length: {prot_sizes[:, 1].min()},\n"
+                     f"max query length: {prot_sizes[:, 1].max()},\n"
+                     f"mean number of sequences: {prot_sizes[:, 0].mean():.2f},\n"
+                     f"min number of sequences: {prot_sizes[:, 0].min()},\n"
                      f"max number of sequences: {prot_sizes[:, 0].max()}")
-        id_list = pd.Series(uniprot_ids)
-    else:
-        uniprot_ids = msa_sizes.get_uniprot_ids_in_size(**limits)
-        logging.info(
-            f"Found {len(uniprot_ids)} MSAs in size range {limits}."
-        )
-        id_list = pd.Series(list(uniprot_ids))
 
     # Write to file
-    id_list.to_csv(args.result_file, index=False, header=False)
+    pd.Series(uniprot_ids).to_csv(args.result_file, index=False, header=False)
