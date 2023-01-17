@@ -5,6 +5,7 @@ from af22c.proteome import ProteomeMSAs, ProteomeMSASizes, ProteomeNeffs,\
     ProteomeNeffsNaive
 import logging
 import math
+import pandas as pd
 from pathlib import Path
 
 
@@ -29,6 +30,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("proteome_msas_dir")
     parser.add_argument("data_dir")
+    parser.add_argument("-p", "--protein_ids_file", default=None, type=str)
     parser.add_argument("--msa_sizes_file", default=None, type=str)
     parser.add_argument("-n", "--max_n_sequences", default=math.nan, type=int)
     parser.add_argument("-l", "--max_query_length", default=math.nan, type=int)
@@ -56,8 +58,11 @@ if __name__ == "__main__":
             msa_sizes.precompute_msa_sizes()
         uniprot_ids = filter_by_size(proteome, msa_sizes, **size_limits)
 
-    neffs = ProteomeNeffs.from_msas(proteome, str(Path(args.data_dir) / "neffs"))
-    neffs_naive = ProteomeNeffsNaive.from_msas(proteome, str(Path(args.data_dir) / "neffs_naive"))
+    # Filter by protein IDs
+    if args.protein_ids_file:
+        ids_df = pd.read_csv(args.protein_ids_file, header=None)
+        ids_to_process = set(ids_df.squeeze('columns'))
+        uniprot_ids &= ids_to_process
 
     logging.info(f"{len(uniprot_ids)} MSAs left after filtering")
 
