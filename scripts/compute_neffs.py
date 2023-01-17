@@ -3,8 +3,8 @@
 import argparse
 from af22c.proteome import ProteomeMSAs, ProteomeMSASizes, ProteomeNeffs,\
     ProteomeNeffsNaive
+from af22c.utils import add_msa_size_limit_options, size_limits_to_dict
 import logging
-import math
 import pandas as pd
 from pathlib import Path
 
@@ -17,10 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("data_dir")
     parser.add_argument("-p", "--protein_ids_file", default=None, type=str)
     parser.add_argument("--msa_sizes_file", default=None, type=str)
-    parser.add_argument("-n", "--max_n_sequences", default=math.nan, type=int)
-    parser.add_argument("-l", "--max_query_length", default=math.nan, type=int)
-    parser.add_argument("-m", "--min_n_sequences", default=math.nan, type=int)
-    parser.add_argument("-k", "--min_query_length", default=math.nan, type=int)
+    parser = add_msa_size_limit_options(parser)
     parser.add_argument("-d", "--dry_run", action="store_true")
     parser.add_argument("-o", "--overwrite", action="store_true")
     parser.add_argument("--mode", default="ref", type=str)  # "ref" or "naive"
@@ -31,20 +28,14 @@ if __name__ == "__main__":
     logging.info(f"found {len(uniprot_ids)} MSAs")
 
     # Filter by size
-    size_limits = (args.min_query_length, args.max_query_length,
-                   args.min_n_sequences, args.max_n_sequences)
-    if not all(math.isnan(v) for v in size_limits):
+    limits = size_limits_to_dict(args)
+    if any(limits.values()):
         if args.msa_sizes_file:
             msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_file)
         else:
             msa_sizes = ProteomeMSASizes.from_msas(proteome, args.data_dir)
             msa_sizes.precompute_msa_sizes()
-        ids_to_process = msa_sizes.get_uniprot_ids_in_size(
-            min_q_len=args.min_query_length,
-            max_q_len=args.max_query_length,
-            min_n_seq=args.min_n_sequences,
-            max_n_seq=args.max_n_sequences
-        )
+        ids_to_process = msa_sizes.get_uniprot_ids_in_size(**limits)
         uniprot_ids &= ids_to_process
 
     # Filter by protein IDs

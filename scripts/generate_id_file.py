@@ -1,7 +1,7 @@
 import argparse
 from af22c.proteome import ProteomeMSASizes
+from af22c.utils import add_msa_size_limit_options, size_limits_to_dict
 import logging
-import math
 import random
 import pandas as pd
 import numpy as np
@@ -12,22 +12,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("msa_sizes_file")
     parser.add_argument("result_file")
-    parser.add_argument("-n", "--max_n_sequences", default=math.inf, type=int)
-    parser.add_argument("-l", "--max_query_length", default=math.inf, type=int)
-    parser.add_argument("-m", "--min_n_sequences", default=0, type=int)
-    parser.add_argument("-k", "--min_query_length", default=0, type=int)
+    parser = add_msa_size_limit_options(parser)
     parser.add_argument("-s", "--sample_size", default=None, type=int)
     parser.add_argument("-b", "--biggest_only", action="store_true",
                         default=False)
     args = parser.parse_args()
 
-    limits = {
-        "min_q_len": args.min_query_length,
-        "max_q_len": args.max_query_length,
-        "min_n_seq": args.min_n_sequences,
-        "max_n_seq": args.max_n_sequences
-    }
     msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_file)
+
+    # Filter by size
+    limits = size_limits_to_dict(args)
     uniprot_ids = list(msa_sizes.get_uniprot_ids_in_size(**limits))
 
     if len(uniprot_ids) < 1:

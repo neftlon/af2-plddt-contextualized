@@ -258,6 +258,16 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         def get_uniprot_ids_in_size(
             self, min_q_len=0, max_q_len=np.inf, min_n_seq=0, max_n_seq=np.inf
         ) -> set[str]:
+            # TODO refactor to use None as default everywhere for limits
+            if min_q_len is None:
+                min_q_len = 0
+            if max_q_len is None:
+                max_q_len = np.inf
+            if min_n_seq is None:
+                min_n_seq = 0
+            if max_n_seq is None:
+                max_n_seq = np.inf
+
             in_size = self.msa_sizes[
                 (self.msa_sizes["query_length"] <= max_q_len)
                 & (self.msa_sizes["sequence_count"] <= max_n_seq)

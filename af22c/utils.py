@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from contextlib import contextmanager
 from typing import IO
+from argparse import ArgumentParser
 
 
 @lru_cache(None)
@@ -45,3 +46,20 @@ def as_handle(filething, mode="r", **kwargs) -> IO:
             yield fh
     except TypeError:
         yield filething
+
+
+def add_msa_size_limit_options(parser: ArgumentParser) -> ArgumentParser:
+    parser.add_argument("-n", "--max_n_sequences", default=None, type=int)
+    parser.add_argument("-l", "--max_query_length", default=None, type=int)
+    parser.add_argument("-m", "--min_n_sequences", default=None, type=int)
+    parser.add_argument("-k", "--min_query_length", default=None, type=int)
+    return parser
+
+
+def size_limits_to_dict(args) -> dict:
+    return {
+        "min_q_len": args.min_query_length,
+        "max_q_len": args.max_query_length,
+        "min_n_seq": args.min_n_sequences,
+        "max_n_seq": args.max_n_sequences
+    }
