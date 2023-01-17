@@ -9,21 +9,6 @@ import pandas as pd
 from pathlib import Path
 
 
-def filter_by_size(uniprot_ids: set,
-                   msa_sizes: ProteomeMSASizes,
-                   **limits) -> set:
-    """
-    Filter a set of UniProt IDs by MSA size.
-    """
-    ids_in_size = msa_sizes.get_uniprot_ids_in_size(
-        min_q_len=limits["min_q_len"],
-        max_q_len=limits["max_q_len"],
-        min_n_seq=limits["min_n_seq"],
-        max_n_seq=limits["max_n_seq"],
-    )
-    return uniprot_ids & ids_in_size
-
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
@@ -46,17 +31,21 @@ if __name__ == "__main__":
     logging.info(f"found {len(uniprot_ids)} MSAs")
 
     # Filter by size
-    size_limits = {"min_q_len": args.min_query_length,
-                   "max_q_len": args.max_query_length,
-                   "min_n_seq": args.min_n_sequences,
-                   "max_n_seq": args.max_n_sequences}
-    if not all(math.isnan(v) for v in size_limits.values()):
+    size_limits = (args.min_query_length, args.max_query_length,
+                   args.min_n_sequences, args.max_n_sequences)
+    if not all(math.isnan(v) for v in size_limits):
         if args.msa_sizes_file:
             msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_file)
         else:
             msa_sizes = ProteomeMSASizes.from_msas(proteome, args.data_dir)
             msa_sizes.precompute_msa_sizes()
-        uniprot_ids = filter_by_size(proteome, msa_sizes, **size_limits)
+        ids_to_process = msa_sizes.get_uniprot_ids_in_size(
+            min_q_len=args.min_query_length,
+            max_q_len=args.max_query_length,
+            min_n_seq=args.min_n_sequences,
+            max_n_seq=args.max_n_sequences
+        )
+        uniprot_ids &= ids_to_process
 
     # Filter by protein IDs
     if args.protein_ids_file:
