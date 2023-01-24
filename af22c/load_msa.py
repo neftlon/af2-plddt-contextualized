@@ -146,7 +146,7 @@ def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
             continue
 
         attribs = None
-        if len(raw_attribs) == (len(MsaMatchAttribs._fields) - 1):  # -1 because the target_id is not part of the attributes
+        if len(remaining_attribs) == len(MsaMatchAttribs._fields):
             attribs = MsaMatchAttribs(*remaining_attribs)
         else:
             logging.warning(
