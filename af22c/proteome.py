@@ -406,6 +406,7 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         )
 
     def get_msa_sizes(self) -> pd.DataFrame:
+        """Return this object as dataframe."""
         return self.msa_size_provider.get_msa_sizes()
 
     def precompute_msa_sizes(self):
@@ -413,22 +414,6 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         Precompute MSA sizes and store them in the referenced .csv file.
         """
         self.msa_size_provider.precompute_msa_sizes()
-
-    def plot_msa_sizes(self, data_dir="data", name="human", uniprot_ids: set[str] = None):
-        data_dir = Path(data_dir)
-        fig_path = data_dir / f"{name}_msa_size_scatter.png"
-        msa_sizes = self.get_msa_sizes()
-        if uniprot_ids:
-            if uniprot_ids - set(msa_sizes['uniprot_id']):
-                raise ValueError('Not all specified uniprot ids where found in the precomputed msa sizes file.')
-            msa_sizes = msa_sizes.loc[msa_sizes['uniprot_id'].isin(uniprot_ids)]
-        sns.set_style("whitegrid")
-        p = sns.jointplot(data=msa_sizes, x="query_length", y="sequence_count")
-        p.set_axis_labels(
-            "Number of Amino Acids in Query", "Number of Sequences in MSA"
-        )
-        p.savefig(fig_path)
-        logging.info(f"saved figure to {fig_path}")
 
 
 @dataclass
@@ -660,7 +645,7 @@ class ProteomePLDDTs(ProteomewidePerResidueMetric):
     ```
     """
 
-    plddts_by_id: dict[str : list[float]]
+    plddts_by_id: dict[str, list[float]]
 
     @classmethod
     def from_file(cls, plddt_path: str):
@@ -699,7 +684,7 @@ class ProteomeSETHPreds(ProteomewidePerResidueMetric):
     ```
     """
 
-    seth_preds_by_id: dict[str : list[float]]
+    seth_preds_by_id: dict[str, list[float]]
 
     @classmethod
     def from_file(cls, seth_preds_path: str):

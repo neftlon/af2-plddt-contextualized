@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+
+from af22c.plots.msa_sizes import plot_msa_sizes
 from af22c.proteome import ProteomeMSAs, ProteomeMSASizes
+from pathlib import Path
+import logging
+import matplotlib.pyplot as plt
 
 
 def show_duplicates(proteome):
@@ -26,6 +31,15 @@ if __name__ == "__main__":
     if args.compute_size:
         sizes.precompute_msa_sizes()
     if args.plot_size:
-        sizes.plot_msa_sizes()
+        # create plot
+        jg = plot_msa_sizes(sizes)
+
+        # save plot
+        data_dir = Path(args.data_dir)
+        name = "human"  # TODO: add support for other proteomes as well?
+        fig_path = data_dir / "plots" / f"{name}_msa_size_scatter.png"
+        jg.savefig(fig_path)
+
+        logging.info(f"saved figure to {fig_path}")
     if args.duplicates:
         show_duplicates(sizes)
