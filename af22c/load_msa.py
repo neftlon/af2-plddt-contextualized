@@ -7,7 +7,6 @@ import sys
 
 from Bio import SeqIO
 from Bio.Seq import Seq
-from collections import namedtuple
 from dataclasses import dataclass, field
 from tqdm import tqdm
 import tarfile
@@ -17,26 +16,24 @@ import numpy as np
 from itertools import repeat, chain
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
-from typing import Callable, IO, Optional
+from typing import Callable, IO, Optional, NamedTuple
 from pathlib import Path
 from collections import defaultdict
 
 from af22c.utils import warn_once, as_handle
 
-MsaMatchAttribs = namedtuple(
-    "MsaMatchAttribs",
-    [
-        "aln_score",
-        "seq_identity",
-        "eval",
-        "qstart",
-        "qend",
-        "qlen",
-        "tstart",
-        "tend",
-        "tlen",
-    ],
-)
+
+class MsaMatchAttribs(NamedTuple):
+    """Attributes from a match in a .a3m file"""
+    aln_score: int
+    seq_identity: float
+    eval: int
+    qstart: int
+    qend: int
+    qlen: int
+    tstart: int
+    tend: int
+    tlen: int
 
 
 # Generate translation table for lowercase removal
