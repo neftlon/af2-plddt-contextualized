@@ -2,7 +2,7 @@ from af22c.load_msa import MultipleSeqAlign
 from af22c.similarity_matrix import PROT_SEQ_AAS, get_background_distribution, get_normalized_similarity_matrix
 import numpy as np
 
-if PROT_SEQ_AAS:
+if PROT_SEQ_AAS is not None:
     AA_TO_INT = {aa: index for index, aa in enumerate(PROT_SEQ_AAS)}
     INT_TO_AA = {index: aa for index, aa in enumerate(PROT_SEQ_AAS)}
     DEFAULT_SIMILARITY_MATRIX = get_normalized_similarity_matrix()

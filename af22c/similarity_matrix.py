@@ -15,13 +15,13 @@ if os.path.exists(BLOSUM62_path):  # don't panic yet if cwd is not right
 
 
 def get_normalized_similarity_matrix() -> np.ndarray:
-    if not BLOSUM62_probs:
+    if not BLOSUM62_probs is not None:
         raise Exception(f"unable to find BLOSUM62 matrix at {BLOSUM62_path}, cwd is {os.getcwd()}")
     # TODO return dataframe and refactor access in similarity_matrix.py
     return BLOSUM62_probs.values
 
 
 def get_background_distribution(normalized_sim_matrix: np.ndarray) -> np.ndarray:
-    if not BLOSUM62_probs:
+    if not BLOSUM62_probs is not None:
         raise Exception(f"unable to find BLOSUM62 matrix at {BLOSUM62_path}, cwd is {os.getcwd()}")
     return np.sum(BLOSUM62_probs.values, axis=0)
