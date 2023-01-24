@@ -147,7 +147,11 @@ def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
 
         attribs = None
         if len(remaining_attribs) == len(MsaMatchAttribs._fields):
-            attribs = MsaMatchAttribs(*remaining_attribs)
+            # typecast fields from str to their respective type before creating the match attribs object
+            attribs = MsaMatchAttribs(*[
+                MsaMatchAttribs.__annotations__[field_name](field_value)
+                for field_name, field_value in zip(MsaMatchAttribs._fields, remaining_attribs)
+            ])
         else:
             logging.warning(
                 f"a3m file contains a match at index {idx} (of {len(seqs)} matches) that contains not the "
