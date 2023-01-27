@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     """## Per-residue scores"""
     fig, axs = plt.subplots(nrows=len(correlation.scores), figsize=(8, len(correlation.scores) * 2))
-    plot_multiple_scores_in_one(axs, correlation.scores, prot_id)
+    plot_multiple_scores_on_multiple_axis(axs, correlation.scores, prot_id)
     st.pyplot(fig)
 
     """

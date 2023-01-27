@@ -19,7 +19,7 @@ def plot_per_protein_score_distribution(
     sns.boxplot(data=df, y=score.metric_name, color=score.color, **kwargs)
 
 
-def plot_multiple_scores_in_one(
+def plot_multiple_scores_on_multiple_axis(
     axs: tuple[plt.Axes],
     scores: list[ProteomewidePerResidueMetric],
     uniprot_id: str
