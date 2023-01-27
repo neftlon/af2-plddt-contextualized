@@ -21,7 +21,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "data_src",
-        help="Either a protein source (to caclulate sizes on demand; can be .tar[.gz] archive or folder containing .a3m"
+        help="Either a protein source (to calculate sizes on demand; can be .tar[.gz] archive or folder containing .a3m"
              " files) or a CSV sizes containing the protein size information (then, no on-demand calculation is "
              "possible)",
     )
@@ -38,6 +38,7 @@ if __name__ == "__main__":
              "these arrays must be objects with the following fields: \"name\" for subset name, \"num_seqs_range\" to "
              "specify an array with min/max entries of # of sequences, and \"query_length_range\" to specify an array "
              "of min/max entries of query length",
+        metavar="SUBSF",
     )
     parser.add_argument("-c", "--compute_size", action="store_true")
     parser.add_argument("-p", "--plot_size", action="store_true")
