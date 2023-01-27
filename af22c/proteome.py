@@ -16,9 +16,7 @@ from abc import abstractmethod, ABC
 
 from af22c.load_msa import MultipleSeqAlign
 from af22c.score_max_z import calc_max_z
-from af22c.utils import get_raw_proteome_name, as_handle
-
-LimitsType = tuple[float | int | None, float | int | None] | None
+from af22c.utils import get_raw_proteome_name, as_handle, LimitsType
 
 
 class Proteome(ABC):
@@ -285,6 +283,9 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
                 "Please provide MSAs on initialization by using `ProteomeMSASizes.from_msas`."
             )
 
+        def get_filepath(self) -> str:
+            return str(self.filepath)
+
     class ComputingMSASizeProvider(CSVMSASizeProvider):
         """Compute MSA sizes from a proteome on demand."""
 
@@ -414,6 +415,9 @@ class ProteomeMSASizes(ProteomewidePerProteinMetric):
         Precompute MSA sizes and store them in the referenced .csv file.
         """
         self.msa_size_provider.precompute_msa_sizes()
+
+    def get_filepath(self) -> str:
+        self.msa_size_provider.get_filepath()
 
 
 @dataclass

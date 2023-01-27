@@ -12,6 +12,9 @@ from typing import IO
 from argparse import ArgumentParser
 
 
+LimitsType = tuple[float | int | None, float | int | None] | None
+
+
 @lru_cache(None)
 def warn_once(msg: str):
     """
@@ -63,3 +66,10 @@ def size_limits_to_dict(args) -> dict:
         "min_n_seq": args.min_n_sequences,
         "max_n_seq": args.max_n_sequences
     }
+
+
+def readable_enumeration(items: list[str], coord_conj: str = "and", oxford_comma: bool = True) -> str:
+    if len(items) < 3:
+        return f" {coord_conj} ".join(items)
+    *a, b = items
+    return f"{', '.join(a)}{',' if oxford_comma else ''} {coord_conj} {b}"
