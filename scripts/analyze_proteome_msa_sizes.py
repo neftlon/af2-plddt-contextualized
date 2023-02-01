@@ -65,8 +65,15 @@ if __name__ == "__main__":
             subsets = json.load(args.subsets_file)
 
         # create plots
-        for scale_ext, scale_opt in [("", False), ("_logscale", True)]:
-            jg = plot_msa_sizes(sizes, log_scale=scale_opt, subsets=subsets)
+        for scale_ext, scale_opt, magnification_subset_name in [("", False, "15k"), ("_logscale", True, None)]:
+            jg = plot_msa_sizes(
+                sizes,
+                log_scale=scale_opt,
+                subsets=subsets,
+                magnification_subset_name=magnification_subset_name,
+                histplot=True,
+                kdeplot=True,
+            )
 
             # save plot
             data_dir = Path(args.data_dir)
