@@ -1,3 +1,5 @@
+from typing import Union
+
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 import seaborn as sns
 import matplotlib.patches as patches
@@ -8,7 +10,7 @@ from af22c.plots import style
 def plot_msa_sizes(
     msa_sizes: ProteomeMSASizes,
     uniprot_ids: set[str] = None,
-    log_scale: bool = True,
+    log_scale: Union[bool, tuple[bool, bool]] = True,
     subsets: list[dict] = None,
     magnification_subset_name: str = None,
     histplot: bool = True,
@@ -41,7 +43,7 @@ def plot_msa_sizes(
             "color": dataset_color,
         }
         if log_scale:
-            marginal_kws["log_scale"] = True
+            marginal_kws["log_scale"] = log_scale
         # this function automatically creates the scatter plot
         p = sns.jointplot(
             data=msa_sizes_df,
@@ -58,9 +60,16 @@ def plot_msa_sizes(
         p.set_axis_labels(
             "Number of Amino Acids in Query", "Number of Sequences in MSA"
         )
-        if log_scale:
-            p.ax_joint.set_xscale("log")
-            p.ax_joint.set_yscale("log")
+
+        # decide which axis should use logscale
+        if isinstance(log_scale, bool) and log_scale:
+            log_scale = (True,)*2
+        if isinstance(log_scale, tuple) and len(log_scale) == 2:
+            xlog, ylog = log_scale
+            if xlog:
+                p.ax_joint.set_xscale("log")
+            if ylog:
+                p.ax_joint.set_yscale("log")
 
         if subsets:
             rects, names = [], []
