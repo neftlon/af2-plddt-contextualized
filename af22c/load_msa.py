@@ -27,7 +27,7 @@ class MsaMatchAttribs(NamedTuple):
     """Attributes from a match in a .a3m file"""
     aln_score: int
     seq_identity: float
-    eval: int
+    eval: float
     qstart: int
     qend: int
     qlen: int
@@ -47,8 +47,8 @@ class MsaMatch:
     """
     target_id: str
     attribs: Optional[MsaMatchAttribs]
-    orig_seq: Seq
-    aligned_seq: Seq = field(init=False)
+    orig_seq: Seq  # with insertions
+    aligned_seq: Seq = field(init=False)  # without insertions
 
     def __post_init__(self):
         # Convert to String and back in order to use string translation method instead of
