@@ -25,7 +25,7 @@ def plot_msa_sizes(
     These two parameters are projected on the coordinate axes of the plot.
     """
     with style(start_idx=2) as c:
-        sns.set_theme(style="dark")
+        sns.set_theme(style="darkgrid")
 
         dataset_color = ".15" #c()
 
