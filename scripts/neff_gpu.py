@@ -41,7 +41,7 @@ def loadmsa(path, stoi):
       idx += 1
     return encmsa
 
-def pwseq(encmsa, device=None, batch_size=2**12, **kwargs):
+def pwseq(encmsa, device=None, batch_size=2**12, verbose=True, **kwargs):
   """return pairwise sequence identity calculated with pytorch"""
   num_seqs,query_len = encmsa.shape
   
@@ -63,7 +63,12 @@ def pwseq(encmsa, device=None, batch_size=2**12, **kwargs):
   # one batch contains batch_size many pairs, which yields batch_size many similarity scores because the 
   # similarity matrix is symmetric.
   bpwseq = torch.eye(num_seqs, device=device) # matrix containing similarity scores for two sequences
-  for batch_pairs in tqdm(batches, total=num_batches, desc="running batches"):
+  
+  for batch_pairs in (
+    tqdm(batches, total=num_batches, desc="running batches")
+    if verbose else
+    batches
+  ):
     # extract sequences in batch
     batch_seqs = encmsa[batch_pairs]
 
@@ -143,12 +148,13 @@ def main(args=sys.argv):
   parser.add_argument("-m", "--msa", metavar="MSAFILE", type=argparse.FileType("r",encoding="ascii"))
   parser.add_argument("-am", "--archive-msa", metavar="MSAINARCHIVE", type=str, required=False)
   parser.add_argument("-a", "--archive", metavar="TARFILE", type=str, required=False)
-  parser.add_argument("-o", "--outfile", metavar="OUTJSON", type=argparse.FileType("w",encoding="ascii"), default=sys.stdout)
+  parser.add_argument("-o", "--outfile", metavar="OUTJSON", type=str, default="-")
   parser.add_argument("-d", "--device", metavar="DEV", type=str, default="cuda" if torch.cuda.is_available() else None,
                       help="pytorch device to run calculations on; options may include \"cpu\" or \"cuda\"")
   parser.add_argument("-b", "--batch-size", metavar="N", type=int, default=2**12,
                       help="specify the number of sequence pairs included in one seqeuence identity calculation batch.\n"
                            "(higher=faster, but also more (GPU) memory usage, lower=slower, but less (GPU) memory usage)")
+  parser.add_argument("-v", "--verbose", default=False, action="store_true")
   args = parser.parse_args(args[1:])
   
   if args.device != "cuda":
@@ -167,9 +173,14 @@ def main(args=sys.argv):
 
   if infile:
     # run calculations
-    scores = neff(infile, device=args.device, batch_size=args.batch_size).tolist()
-    args.outfile.write(json.dumps(scores))
-    args.outfile.write("\n")
+    scores = neff(infile, device=args.device, batch_size=args.batch_size, verbose=args.verbose).tolist()
+    contents = json.dumps(scores)
+    
+    # write outfile if there was no exception
+    outfile = sys.stdout if args.outfile == "-" else open(args.outfile, "w")
+    print(contents, file=outfile)
+    if args.outfile != "-": # don't close stdout
+      outfile.close()
     infile.close()
 
 if __name__ == "__main__":
