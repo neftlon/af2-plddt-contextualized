@@ -4,6 +4,7 @@ This module contains some functionality that is used in different scripts and ca
 
 import tarfile
 import os
+import io
 from functools import lru_cache
 import logging
 from pathlib import Path
@@ -44,11 +45,14 @@ def as_handle(filething, mode="r", **kwargs) -> IO:
     Transparent context manager for working with files. You can pass a filename as a `str`, `Path` or an actual file
     object to this function. The function will try to create a handle if necessary.
     """
-    try:
-        with open(filething, mode=mode, **kwargs) as fh:
-            yield fh
-    except TypeError:
+    if isinstance(filething, io.TextIOWrapper):
         yield filething
+    else:
+        try:
+            with open(filething, mode=mode, **kwargs) as fh:
+                yield fh
+        except TypeError:
+            yield filething
 
 
 def add_msa_size_limit_options(parser: ArgumentParser) -> ArgumentParser:

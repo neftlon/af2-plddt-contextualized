@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 
+import io
+import os
 import sys
+import tarfile
 from string import ascii_lowercase
 import torch
 from tqdm import tqdm
 from af22c.proteome import MultipleSeqAlign
+from af22c.utils import as_handle
 
 def loadmsa(path, stoi):
   """load an MSA as an encoded tensor from a file-like object and a mapping dict stoi"""
-  with open(path) as f:
+  with as_handle(path) as f:
     lines = f.readlines()
     assert not len(lines) & 1, f"MSA at {path} should contain an even number of lines"
     query_id = lines[0].split()[0]
@@ -101,7 +105,7 @@ def neff(msa, pwseqfn=pwseq, seqid_thres=0.8, **kwargs):
         encmsa[seqidx, colidx] = stoi[colval]
   elif isinstance(msa, torch.Tensor):
     encmsa = msa
-  elif isinstance(msa, str):
+  elif isinstance(msa, str) or isinstance(msa, io.TextIOWrapper):
     encmsa = loadmsa(msa, stoi)
   else:
     raise ValueError(f"unable to interpret type of input msa ({type(msa)=})")
@@ -116,9 +120,19 @@ def neff(msa, pwseqfn=pwseq, seqid_thres=0.8, **kwargs):
   neffweights = 1 / torch.sum(eq >= seqid_thres, dim=0)
   return gapcount(encmsa, weights=neffweights, nongap=True, gaptok=gaptok, **kwargs)
 
+def open_a3m(archive_path, a3m_path):
+  """
+  create a handle from an a3m file in a tar file.
+  the a3m_path is expected to be in the archive.
+  """
+  tar = tarfile.open(archive_path)
+  a3m = tar.extractfile(a3m_path)
+  res = io.TextIOWrapper(a3m, encoding="utf-8")
+  return res
+
 def main():
-  if len(sys.argv) != 2:
-    print("usage: %s MSAFILE" % sys.argv[0])
+  if len(sys.argv) not in [2,3]:
+    print("usages:\n\t%s MSAFILE\n\t%s ARCHIVE MSA_IN_ARCHIVE" % ((sys.argv[0],)*2))
     sys.exit(-1)
   
   # try to select a gpu
@@ -128,9 +142,15 @@ def main():
   else:
     print("gpu not found, expect severe decrease in execution speed")
   
-  # run calculations
-  msafilepath = sys.argv[1]
-  print(neff(msafilepath, device=device))
+  # open input file depending on arguments
+  if len(sys.argv) == 2:
+    infile = open(sys.argv[1])
+  elif len(sys.argv) == 3:
+    infile = open_a3m(*sys.argv[1:])
+  if infile:
+    # run calculations
+    print(neff(infile, device=device))
+    infile.close()
 
 if __name__ == "__main__":
   main()
