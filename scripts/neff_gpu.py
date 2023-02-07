@@ -6,6 +6,7 @@ import sys
 import tarfile
 import time
 from string import ascii_lowercase
+from itertools import chain
 import torch
 from tqdm import tqdm
 from af22c.proteome import MultipleSeqAlign
@@ -44,54 +45,48 @@ def pwseq(encmsa, device=None, batch_size=2**16, **kwargs):
   
   # calculate all pairs for which pairwise sequence identities need to be calculated
   pairs = torch.triu_indices(*(num_seqs,)*2, 1, device=device).T
-  print(f"{pairs.shape=}")
   
   # each batch should yield a matrix with batch_size elements
   num_batches = (len(pairs) + batch_size - 1) // batch_size
+  num_full_batches = len(pairs) // batch_size
   
+  batch_pairs = pairs[:-(len(pairs)%batch_size)]
+  rest_pairs = pairs[-(len(pairs)%batch_size):]
+
+  checkpoints = "seq_extract pwdists putback"
+  t = {name: 0 for name in checkpoints.split()}
+  
+  # put pairs into batches
+  batches = batch_pairs.view(num_full_batches, -1, 2)
+  if num_batches != num_full_batches:
+    batches = chain(batches, [rest_pairs])
+    
   # one batch contains batch_size many pairs, which yields batch_size many similarity scores because the 
   # similarity matrix is symmetric.
   bpwseq = torch.eye(num_seqs, device=device) # matrix containing similarity scores for two sequences
-  
-  checkpoints = "pairarange pairgather pairflatten seq_extract_total pwdists_total putback_total"
-  t = {name: 0 for name in checkpoints.split()}
-  for batch_idx in tqdm(range(num_batches), desc="running batches"):
-    # get indices relevant for batch
-    start = time.perf_counter()
-    pairs_idx = torch.arange(batch_idx*batch_size, min((batch_idx + 1)*batch_size, len(pairs)))
-    end = time.perf_counter()
-    t["pairarange"] += end - start
-    
-    start = time.perf_counter()
-    batch_pairs = pairs[pairs_idx]
-    end = time.perf_counter()
-    t["pairgather"] += end - start
-    
-    start = time.perf_counter()
-    batch_pairs_flat = batch_pairs.view(-1)
-    end = time.perf_counter()
-    t["pairflatten"] += end - start
-    
+  for batch_pairs in tqdm(batches, total=num_batches, desc="running batches"):
     # extract sequences in batch
     start = time.perf_counter()
-    batch_seqs = encmsa[batch_pairs_flat]
-    batch_seqs = batch_seqs.view(-1, 2, query_len)
+    #batch_seqs = encmsa[batch_pairs_flat]
+    batch_seqs = encmsa[batch_pairs]
+    #batch_seqs = batch_seqs.view(-1, 2, query_len)
+    #print(f"{batch_seqs.shape}")
     end = time.perf_counter()
-    t["seq_extract_total"] += end - start
+    t["seq_extract"] += end - start
 
     # calculate pairwise distances 
     start = time.perf_counter()
     batch_pwdists = torch.sum(batch_seqs[:,0,:] != batch_seqs[:,1,:], axis=-1)
     batch_pwseq = 1 - batch_pwdists / query_len
     end = time.perf_counter()
-    t["pwdists_total"] += end - start
+    t["pwdists"] += end - start
     
     # put at right location in result matrix (and make symmetric)
     start = time.perf_counter()
     bpwseq[batch_pairs[:,0],batch_pairs[:,1]] = batch_pwseq
     bpwseq[batch_pairs[:,1],batch_pairs[:,0]] = batch_pwseq
     end = time.perf_counter()
-    t["putback_total"] += end - start
+    t["putback"] += end - start
   
   c = sum(t.values())
   for name, total in t.items():
