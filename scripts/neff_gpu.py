@@ -4,6 +4,7 @@ import io
 import os
 import sys
 import tarfile
+import time
 from string import ascii_lowercase
 import torch
 from tqdm import tqdm
@@ -37,12 +38,13 @@ def loadmsa(path, stoi):
       idx += 1
     return encmsa
 
-def pwseq(encmsa, device=None, batch_size=2**18, **kwargs):
+def pwseq(encmsa, device=None, batch_size=2**16, **kwargs):
   """return pairwise sequence identity calculated with pytorch"""
   num_seqs,query_len = encmsa.shape
   
   # calculate all pairs for which pairwise sequence identities need to be calculated
   pairs = torch.triu_indices(*(num_seqs,)*2, 1, device=device).T
+  print(f"{pairs.shape=}")
   
   # each batch should yield a matrix with batch_size elements
   num_batches = (len(pairs) + batch_size - 1) // batch_size
@@ -50,23 +52,51 @@ def pwseq(encmsa, device=None, batch_size=2**18, **kwargs):
   # one batch contains batch_size many pairs, which yields batch_size many similarity scores because the 
   # similarity matrix is symmetric.
   bpwseq = torch.eye(num_seqs, device=device) # matrix containing similarity scores for two sequences
+  
+  checkpoints = "pairarange pairgather pairflatten seq_extract_total pwdists_total putback_total"
+  t = {name: 0 for name in checkpoints.split()}
   for batch_idx in tqdm(range(num_batches), desc="running batches"):
-    # calculate similarity scores for a batch
+    # get indices relevant for batch
+    start = time.perf_counter()
     pairs_idx = torch.arange(batch_idx*batch_size, min((batch_idx + 1)*batch_size, len(pairs)))
-    batch_pairs = pairs[pairs_idx]
-    batch_pairs_flat = batch_pairs.view(-1)
+    end = time.perf_counter()
+    t["pairarange"] += end - start
     
-    # calculate sequences in batch
+    start = time.perf_counter()
+    batch_pairs = pairs[pairs_idx]
+    end = time.perf_counter()
+    t["pairgather"] += end - start
+    
+    start = time.perf_counter()
+    batch_pairs_flat = batch_pairs.view(-1)
+    end = time.perf_counter()
+    t["pairflatten"] += end - start
+    
+    # extract sequences in batch
+    start = time.perf_counter()
     batch_seqs = encmsa[batch_pairs_flat]
     batch_seqs = batch_seqs.view(-1, 2, query_len)
+    end = time.perf_counter()
+    t["seq_extract_total"] += end - start
 
     # calculate pairwise distances 
+    start = time.perf_counter()
     batch_pwdists = torch.sum(batch_seqs[:,0,:] != batch_seqs[:,1,:], axis=-1)
     batch_pwseq = 1 - batch_pwdists / query_len
+    end = time.perf_counter()
+    t["pwdists_total"] += end - start
     
     # put at right location in result matrix (and make symmetric)
+    start = time.perf_counter()
     bpwseq[batch_pairs[:,0],batch_pairs[:,1]] = batch_pwseq
     bpwseq[batch_pairs[:,1],batch_pairs[:,0]] = batch_pwseq
+    end = time.perf_counter()
+    t["putback_total"] += end - start
+  
+  c = sum(t.values())
+  for name, total in t.items():
+    print(f"{name}: {total}s={100*total/c:.01f}%, {total/num_batches}s/batch")
+  
   return bpwseq
   
 def gapcount(encmsa, weights=None, gaptok=None, stoi=None, nongap=False, **kwargs):
@@ -130,10 +160,10 @@ def open_a3m(archive_path, a3m_path):
   res = io.TextIOWrapper(a3m, encoding="utf-8")
   return res
 
-def main():
-  if len(sys.argv) not in [2,3]:
+def main(args=sys.argv):
+  if len(args) not in [2,3]:
     print("usages:\n\t%s MSAFILE\n\t%s ARCHIVE MSA_IN_ARCHIVE" % ((sys.argv[0],)*2))
-    sys.exit(-1)
+    return
   
   # try to select a gpu
   device = None
@@ -143,13 +173,15 @@ def main():
     print("gpu not found, expect severe decrease in execution speed")
   
   # open input file depending on arguments
-  if len(sys.argv) == 2:
-    infile = open(sys.argv[1])
-  elif len(sys.argv) == 3:
-    infile = open_a3m(*sys.argv[1:])
+  if len(args) == 2:
+    infile = open(args[1])
+  elif len(args) == 3:
+    infile = open_a3m(*args[1:])
   if infile:
     # run calculations
-    print(neff(infile, device=device))
+    scores = neff(infile, device=device).tolist()
+    #print(scores)
+    print("done!")
     infile.close()
 
 if __name__ == "__main__":
