@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import io
+import json
 import os
 import sys
 import tarfile
+import argparse
 import time
 from string import ascii_lowercase
 from itertools import chain
@@ -39,7 +41,7 @@ def loadmsa(path, stoi):
       idx += 1
     return encmsa
 
-def pwseq(encmsa, device=None, batch_size=2**16, **kwargs):
+def pwseq(encmsa, device=None, batch_size=2**12, **kwargs):
   """return pairwise sequence identity calculated with pytorch"""
   num_seqs,query_len = encmsa.shape
   
@@ -52,9 +54,6 @@ def pwseq(encmsa, device=None, batch_size=2**16, **kwargs):
   
   batch_pairs = pairs[:-(len(pairs)%batch_size)]
   rest_pairs = pairs[-(len(pairs)%batch_size):]
-
-  checkpoints = "seq_extract pwdists putback"
-  t = {name: 0 for name in checkpoints.split()}
   
   # put pairs into batches
   batches = batch_pairs.view(num_full_batches, -1, 2)
@@ -66,31 +65,15 @@ def pwseq(encmsa, device=None, batch_size=2**16, **kwargs):
   bpwseq = torch.eye(num_seqs, device=device) # matrix containing similarity scores for two sequences
   for batch_pairs in tqdm(batches, total=num_batches, desc="running batches"):
     # extract sequences in batch
-    start = time.perf_counter()
-    #batch_seqs = encmsa[batch_pairs_flat]
     batch_seqs = encmsa[batch_pairs]
-    #batch_seqs = batch_seqs.view(-1, 2, query_len)
-    #print(f"{batch_seqs.shape}")
-    end = time.perf_counter()
-    t["seq_extract"] += end - start
 
     # calculate pairwise distances 
-    start = time.perf_counter()
     batch_pwdists = torch.sum(batch_seqs[:,0,:] != batch_seqs[:,1,:], axis=-1)
     batch_pwseq = 1 - batch_pwdists / query_len
-    end = time.perf_counter()
-    t["pwdists"] += end - start
     
     # put at right location in result matrix (and make symmetric)
-    start = time.perf_counter()
     bpwseq[batch_pairs[:,0],batch_pairs[:,1]] = batch_pwseq
     bpwseq[batch_pairs[:,1],batch_pairs[:,0]] = batch_pwseq
-    end = time.perf_counter()
-    t["putback"] += end - start
-  
-  c = sum(t.values())
-  for name, total in t.items():
-    print(f"{name}: {total}s={100*total/c:.01f}%, {total/num_batches}s/batch")
   
   return bpwseq
   
@@ -156,27 +139,37 @@ def open_a3m(archive_path, a3m_path):
   return res
 
 def main(args=sys.argv):
-  if len(args) not in [2,3]:
-    print("usages:\n\t%s MSAFILE\n\t%s ARCHIVE MSA_IN_ARCHIVE" % ((sys.argv[0],)*2))
-    return
+  parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument("-m", "--msa", metavar="MSAFILE", type=argparse.FileType("r",encoding="ascii"))
+  parser.add_argument("-am", "--archive-msa", metavar="MSAINARCHIVE", type=str, required=False)
+  parser.add_argument("-a", "--archive", metavar="TARFILE", type=str, required=False)
+  parser.add_argument("-o", "--outfile", metavar="OUTJSON", type=argparse.FileType("w",encoding="ascii"), default=sys.stdout)
+  parser.add_argument("-d", "--device", metavar="DEV", type=str, default="cuda" if torch.cuda.is_available() else None,
+                      help="pytorch device to run calculations on; options may include \"cpu\" or \"cuda\"")
+  parser.add_argument("-b", "--batch-size", metavar="N", type=int, default=2**12,
+                      help="specify the number of sequence pairs included in one seqeuence identity calculation batch.\n"
+                           "(higher=faster, but also more (GPU) memory usage, lower=slower, but less (GPU) memory usage)")
+  args = parser.parse_args(args[1:])
   
-  # try to select a gpu
-  device = None
-  if torch.cuda.is_available():
-    device = "cuda"
-  else:
-    print("gpu not found, expect severe decrease in execution speed")
+  if args.device != "cuda":
+    print("warning: gpu not found, expect decrease in execution speed")
   
   # open input file depending on arguments
-  if len(args) == 2:
-    infile = open(args[1])
-  elif len(args) == 3:
-    infile = open_a3m(*args[1:])
+  infile = None
+  if args.msa is not None:
+    infile = args.msa
+    if args.archive is not None or args.archive_msa is not None:
+      print("warning: --archive-msa/-am/--archive/-a options will be ignored when specifying an MSAFILE")
+  elif args.archive is not None and args.archive_msa is not None:
+    infile = open_a3m(args.archive,args.archive_msa)
+  else:
+    print("error: please specify either an MSA or an archive with path to the MSA in the archive")
+
   if infile:
     # run calculations
-    scores = neff(infile, device=device).tolist()
-    #print(scores)
-    print("done!")
+    scores = neff(infile, device=args.device, batch_size=args.batch_size).tolist()
+    args.outfile.write(json.dumps(scores))
+    args.outfile.write("\n")
     infile.close()
 
 if __name__ == "__main__":
