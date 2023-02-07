@@ -141,7 +141,7 @@ def extract_query_and_matches(a3m_handle) -> tuple[str, str, list[MsaMatch]]:
         # TODO(johannes): Sometimes (for instance in Q9A7K5.a3m) the MSA file contains the same (presumable) query
         # sequence at least twice. What purpose does this serve? The code below currently skips these duplications, but
         # this is probably just wrong behavior.
-        if target_id == query.id:
+        if (target_id == query.id) and not remaining_attribs:
             logging.warning(f"query_id {query.id} appearing for a second time in .a3m file, skipping sequence")
             continue
 
