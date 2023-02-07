@@ -15,7 +15,7 @@ if __name__ == "__main__":
     neffs_mmseqs = ProteomeNeffsMMseqs.from_directory(f"data/cluster/{proteome_name}/neffs_mmseqs/", only_half_scores=True)
     plddts = ProteomePLDDTs.from_file(f"data/{proteome_name}_HUMAN_v3_plddts_fltrd.json")
     seths = ProteomeSETHPreds.from_file("data/Human_SETH_preds.txt")
-    msa_sizes = ProteomeMSASizes.from_file(f"data/cluster/{proteome_name}_msa_size.csv")
+    msa_sizes = ProteomeMSASizes.from_file(f"data/cluster/{proteome_name}/msa_sizes.csv")
     correlation = ProteomeCorrelation([plddts, seths, neffs, neffs_naive, neffs_hhsuite, neffs_mmseqs], msa_sizes)
 
     # look into the overlap between the UniProt identifiers of the source datasets
