@@ -810,7 +810,8 @@ class ProteomeCorrelation:
         # compute pairwise correlation
         df_index = None
         p_corr_list = []
-        for prot_id in prot_ids:
+        prot_ids_in_order = list(prot_ids)
+        for prot_id in prot_ids_in_order:
             p_corr = self.get_pearson_corr(prot_id)
             if not df_index:
                 df_index = (p_corr.index, p_corr.columns)
@@ -819,4 +820,4 @@ class ProteomeCorrelation:
         p_corr_array = np.stack(p_corr_list)
 
         # TODO Add caching of p_corr_array in order to speed up plotting
-        return p_corr_array, df_index
+        return p_corr_array, df_index, prot_ids_in_order
