@@ -56,7 +56,7 @@ def pwseq(encmsa, device=None, batch_size=2**12, verbose=True, **kwargs):
   rest_pairs = pairs[-(len(pairs)%batch_size):]
   
   # put pairs into batches
-  batches = batch_pairs.view(num_full_batches, -1, 2)
+  batches = batch_pairs.view(max(num_full_batches,1), -1, 2)
   if num_batches != num_full_batches:
     batches = chain(batches, [rest_pairs])
     
