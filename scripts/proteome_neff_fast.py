@@ -8,6 +8,8 @@ NEFFFAST = "./scripts/neff_gpu.py"
 PROTEOME_NAME="UP000005640_9606"
 TARFILE_NAME=f"./data/{PROTEOME_NAME}.tar"
 TARGET_DIR="./data/test"
+BATCH_SIZE=2**12 # parameter passed to NEFFFAST
+DEVICE="cuda" # parameter passed to NEFFFAST
 
 # extract protein from tar file
 tar_protein_filenames = sp.run(
@@ -39,13 +41,14 @@ for protein_name in (pbar := tqdm(to_process)):
   outfilename = os.path.join(TARGET_DIR, f"{protein_name}.json")
   cmd = (
     f"tar -xOf {TARFILE_NAME} {PROTEOME_NAME}/msas/{protein_name}.a3m | "
-    f"{NEFFFAST} -m - -o {outfilename}"
+    f"{NEFFFAST} -m - -o {outfilename} --batch-size {BATCH_SIZE} --device {DEVICE}"
   )
   res = sp.run(cmd, shell=True, capture_output=True)
   if res.returncode != 0:
     num_failed += 1
     with open(os.path.join(TARGET_DIR, "failed.txt"), "a") as f:
       f.write(protein_name + "\n")
+    tqdm.write("protein %s failed due to \n%s" % (protein_name,res.stderr))
   else:
     num_success += 1
 
