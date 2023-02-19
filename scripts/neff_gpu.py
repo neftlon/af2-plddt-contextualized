@@ -154,11 +154,36 @@ def main(args=sys.argv):
   parser.add_argument("-b", "--batch-size", metavar="N", type=int, default=2**12,
                       help="specify the number of sequence pairs included in one seqeuence identity calculation batch.\n"
                            "(higher=faster, but also more (GPU) memory usage, lower=slower, but less (GPU) memory usage)")
+  parser.add_argument("-l", "--gpu-mem-limit", metavar="M", type=str, default=None,
+                      help="specify maximum gpu memory that should be utilized for calculations. should be given in the following form: f\"{num}{unit}\" where unit can be g for gigabytes, m for megabytes, k for kilobytes, or empty string for bytes; num specifies how many of the respective unit can be allocated. (don't specify the option to make all memory available)")
   parser.add_argument("-v", "--verbose", default=False, action="store_true")
   args = parser.parse_args(args[1:])
   
-  if args.device != "cuda":
+  # NB: torch.cuda.set_per_process_memory_fraction fails when passing it a torch.device at
+  # the moment. therefore obtain the default gpu index here and set the memory fraction of
+  # this device.
+  gpuindex = torch.cuda.current_device() 
+  # convert desired device to torch device
+  args.device = torch.device(args.device,gpuindex)
+  if args.device.type != "cuda":
     print("warning: gpu not found, expect decrease in execution speed")
+  
+  # cap available gpu memory if desired
+  if args.gpu_mem_limit is not None:
+    mul = 1 # memory limit num multiplier
+    if args.gpu_mem_limit[-1] in "gmk":
+      mul = {"k":2**10,"m":2**20,"g":2**30}[args.gpu_mem_limit[-1]]
+      args.gpu_mem_limit = args.gpu_mem_limit[:-1]
+    limitbytes = int(args.gpu_mem_limit) * mul
+    totalbytes = torch.cuda.get_device_properties(args.device).total_memory
+    if limitbytes < totalbytes:
+      frac = limitbytes / totalbytes
+      torch.cuda.set_per_process_memory_fraction(frac,args.device)
+      print("trying to cap gpu memory to",limitbytes,
+            "bytes on gpu %s, this fraction is" % str(args.device),frac)
+    else:
+      print("warning: specified gpu memory limit (%d) is more than total gpu memory bytes "
+            "(%d); therefore no limit will be set." % (limitbytes,totalbytes))
   
   # open input file depending on arguments
   infile = None

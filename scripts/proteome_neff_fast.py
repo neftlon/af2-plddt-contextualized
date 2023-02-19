@@ -42,6 +42,10 @@ parser.add_argument(
        "is available and to lower value if not so much memory is available (<2**12)."
 )
 parser.add_argument(
+  "-l", "--gpu-mem-limit", type=str, metavar="M", default=None,
+  help="gpu memory size limit, passed to NEFFF. (see NEFFF documentation for details)"
+)
+parser.add_argument(
   "-p", "--proteome-name", "--proteome", type=str, metavar="P", default="infer",
   help="optionally specify the proteome name. set to \"infer\" to try to infer the PROTEOME_NAME "
        "from the archive name. this is used to locate the folder containing the \"/msas/\" "
@@ -67,14 +71,12 @@ if srcmode == "archive":
 
   # if proteome name is infer, try to to infer the proteome name from the archive
   if args.proteome_name == "infer":
-    # NB: this is a very hacking way. tar -t probably works the same on a lot of linux machines, 
+    # NB: this is a very hacky way. tar -t probably works the same on a lot of linux machines, 
     # but does it guarantee that the order of outputs? in the following line, it is required that
     # the first output line of tar -t is the base directory containing all the MSAs. right of the 
     # bat, I can imagine 1000&1 ways how this can go wrong.
     args.proteome_name = tar_stdout_lines[0][:-1]
     print("tried to infer proteome name:", args.proteome_name)
-    print(f"if you run into problems where no MSAs were found, make sure that they are in a "
-          f"subfolder at {f'{args.proteome_name}/msas/'} inside the archive.")
 elif srcmode == "dir":
   # try to load proteins from folder
   src_protein_names = [
@@ -103,16 +105,17 @@ num_success,num_failed = 0,0
 for protein_name in (pbar := tqdm(to_process)):
   pbar.set_description("Neff'ing %s, %dP, %dF" % (protein_name, num_success,num_failed))
   outfilename = os.path.join(args.out_dir, f"{protein_name}.json")
+  sharedparams = (
+    f"-o {outfilename} --batch-size {args.batch_size} --device {args.device} "
+    f"-l {args.gpu_mem_limit}"
+  )
   if srcmode == "archive":
     cmd = (
       f"tar -xOf {args.source_file} {args.proteome_name}/msas/{protein_name}.a3m | "
-      f"{args.neff_fast} -m - -o {outfilename} --batch-size {args.batch_size} --device {args.device}"
+      f"{args.neff_fast} -m - {sharedparams}"
     )
   elif srcmode == "dir":
-    cmd = (
-      f"{args.neff_fast} -m {args.source_file}/{protein_name}.a3m -o {outfilename} "
-      f"--batch-size {args.batch_size} --device {args.device}"
-    )
+    cmd = f"{args.neff_fast} -m {args.source_file}/{protein_name}.a3m {sharedparams}"
   else:
     raise ValueError("cannot determine command for srcmode %s" % srcmode)
   res = sp.run(cmd, shell=True, capture_output=True)
