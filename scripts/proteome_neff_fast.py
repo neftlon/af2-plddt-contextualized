@@ -111,8 +111,8 @@ for protein_name in (pbar := tqdm(to_process)):
     )
   elif srcmode == "dir":
     cmd = (
-      f"cat {args.source_file}/{protein_name}.a3m | "
-      f"{args.neff_fast} -m - -o {outfilename} --batch-size {args.batch_size} --device {args.device}"
+      f"{args.neff_fast} -m {args.source_file}/{protein_name}.a3m -o {outfilename} "
+      f"--batch-size {args.batch_size} --device {args.device}"
     )
   else:
     raise ValueError("cannot determine command for srcmode %s" % srcmode)
