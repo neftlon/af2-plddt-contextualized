@@ -51,27 +51,43 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-# extract protein from archive or folder 
-tar_protein_filenames = sp.run(
-  f"tar -tf {args.source_file}", 
-  shell=True,
-  capture_output=True,
-)
-assert tar_protein_filenames.returncode == 0, "failed to get protein names"
-tar_stdout_lines = tar_protein_filenames.stdout.decode("ascii").splitlines()
-tar_protein_names = [
-  os.path.splitext(os.path.basename(n))[0]
-  for n in tar_stdout_lines if "/msas/" in n and n.endswith(".a3m")
-]
+# extract protein names from archive or folder
+srcmode = "archive" if any(args.source_file.endswith(t) for t in [".tar",".tar.gz"]) else "dir"
+if srcmode == "archive":
+  tar_protein_filenames = sp.run(
+    f"tar -tf {args.source_file}", 
+    shell=True,
+    capture_output=True,
+  )
+  assert tar_protein_filenames.returncode == 0, "failed to get protein names"
+  tar_stdout_lines = tar_protein_filenames.stdout.decode("ascii").splitlines()
+  src_protein_names = [
+    os.path.splitext(os.path.basename(n))[0]
+    for n in tar_stdout_lines if "/msas/" in n and n.endswith(".a3m")
+  ]
 
-# if proteome name is infer, try to to infer the proteome name from the archive
+  # if proteome name is infer, try to to infer the proteome name from the archive
+  if args.proteome_name == "infer":
+    # NB: this is a very hacking way. tar -t probably works the same on a lot of linux machines, 
+    # but does it guarantee that the order of outputs? in the following line, it is required that
+    # the first output line of tar -t is the base directory containing all the MSAs. right of the 
+    # bat, I can imagine 1000&1 ways how this can go wrong.
+    args.proteome_name = tar_stdout_lines[0][:-1]
+    print("tried to infer proteome name:", args.proteome_name)
+    print(f"if you run into problems where no MSAs were found, make sure that they are in a "
+          f"subfolder at {f'{args.proteome_name}/msas/'} inside the archive.")
+elif srcmode == "dir":
+  # try to load proteins from folder
+  src_protein_names = [
+    os.path.splitext(os.path.basename(n))[0] 
+    for n in os.listdir(args.source_file) if n.endswith(".a3m")
+  ]
+else:
+  raise ValueError("unable to determine source file type")
+
+# sanity ck proteome_name
 if args.proteome_name == "infer":
-  # NB: this is a very hacking way. tar -t probably works the same on a lot of linux machines, 
-  # but does it guarantee that the order of outputs? in the following line, it is required that
-  # the first output line of tar -t is the base directory containing all the MSAs. right of the 
-  # bat, I can imagine 1000&1 ways how this can go wrong.
-  args.proteome_name = tar_stdout_lines[0][:-1]
-  print("tried to infer proteome name:", args.proteome_name)
+  args.proteome_name = None # don't have proteome_name="infer" flying around in this app
 
 # see which proteins have already been processed
 existing_protein_names = [
@@ -80,7 +96,7 @@ existing_protein_names = [
 ]
 print(f"found {len(existing_protein_names)} already processed proteins")
 
-to_process = list(set(tar_protein_names) - set(existing_protein_names))
+to_process = list(set(src_protein_names) - set(existing_protein_names))
 print(f"{len(to_process)} proteins need to be processed")
 
 # run Neff calculation for each file
@@ -88,10 +104,18 @@ num_success,num_failed = 0,0
 for protein_name in (pbar := tqdm(to_process)):
   pbar.set_description("Neff'ing %s, %dP, %dF" % (protein_name, num_success,num_failed))
   outfilename = os.path.join(args.out_dir, f"{protein_name}.json")
-  cmd = (
-    f"tar -xOf {args.source_file} {args.proteome_name}/msas/{protein_name}.a3m | "
-    f"{args.neff_fast} -m - -o {outfilename} --batch-size {args.batch_size} --device {args.device}"
-  )
+  if srcmode == "archive":
+    cmd = (
+      f"tar -xOf {args.source_file} {args.proteome_name}/msas/{protein_name}.a3m | "
+      f"{args.neff_fast} -m - -o {outfilename} --batch-size {args.batch_size} --device {args.device}"
+    )
+  elif srcmode == "dir":
+    cmd = (
+      f"cat {args.source_file}/{protein_name}.a3m | "
+      f"{args.neff_fast} -m - -o {outfilename} --batch-size {args.batch_size} --device {args.device}"
+    )
+  else:
+    raise ValueError("cannot determine command for srcmode %s" % srcmode)
   res = sp.run(cmd, shell=True, capture_output=True)
   if res.returncode != 0:
     num_failed += 1
