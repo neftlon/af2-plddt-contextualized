@@ -165,7 +165,7 @@ def main(args=sys.argv):
   gpuindex = torch.cuda.current_device() 
   # convert desired device to torch device
   args.device = torch.device(args.device,gpuindex)
-  if args.device.type != "cuda":
+  if args.device.type != "cuda" and args.verbose:
     print("warning: gpu not found, expect decrease in execution speed")
   
   # cap available gpu memory if desired
@@ -179,9 +179,10 @@ def main(args=sys.argv):
     if limitbytes < totalbytes:
       frac = limitbytes / totalbytes
       torch.cuda.set_per_process_memory_fraction(frac,args.device)
-      print("trying to cap gpu memory to",limitbytes,
-            "bytes on gpu %s, this fraction is" % str(args.device),frac)
-    else:
+      if args.verbose:
+        print("trying to cap gpu memory to",limitbytes,
+              "bytes on gpu %s, this fraction is" % str(args.device),frac)
+    elif args.verbose:
       print("warning: specified gpu memory limit (%d) is more than total gpu memory bytes "
             "(%d); therefore no limit will be set." % (limitbytes,totalbytes))
   
@@ -189,7 +190,7 @@ def main(args=sys.argv):
   infile = None
   if args.msa is not None:
     infile = args.msa
-    if args.archive is not None or args.archive_msa is not None:
+    if args.archive is not None or args.archive_msa is not None and args.verbose:
       print("warning: --archive-msa/-am/--archive/-a options will be ignored when specifying an MSAFILE")
   elif args.archive is not None and args.archive_msa is not None:
     infile = open_a3m(args.archive,args.archive_msa)
