@@ -169,7 +169,7 @@ def main(args=sys.argv):
     print("warning: gpu not found, expect decrease in execution speed")
   
   # cap available gpu memory if desired
-  if args.gpu_mem_limit is not None:
+  if str(args.gpu_mem_limit).lower() != "none": # okok, passing "--gpu-mem-limit None" is also valid for no specifying a limit
     mul = 1 # memory limit num multiplier
     if args.gpu_mem_limit[-1] in "gmk":
       mul = {"k":2**10,"m":2**20,"g":2**30}[args.gpu_mem_limit[-1]]
