@@ -130,7 +130,9 @@ for protein_name in (pbar := tqdm(to_process)):
   # these should always be passed to NEFFFAST, no matter where the input comes from or the 
   # output goes to
   sharedparams = (
-    f"--batch-size {args.batch_size} --device {args.device} -l {args.gpu_mem_limit}"
+    f"--batch-size {args.batch_size} "
+    f"--device {args.device} "
+    f"--gpu-mem-limit {args.gpu_mem_limit}"
   )
   
   # determine where output should be written to
@@ -150,8 +152,8 @@ for protein_name in (pbar := tqdm(to_process)):
     )
     tarxform = f'"s|$TMPBASE|{protein_name}.json|"' # transform tmp file name to protein json
     outsuff = (
-      f"-o $TMPFILE; "
-      f"tar -f {args.out_dir} --transform {tarxform} -C $TMPDIR --append $TMPBASE"
+      f"-o $TMPFILE "
+      f"&& tar -f {args.out_dir} --transform {tarxform} -C $TMPDIR --append $TMPBASE"
     )
   
   # determine where the input comes from and build command
@@ -171,9 +173,14 @@ for protein_name in (pbar := tqdm(to_process)):
   res = sp.run(cmd, shell=True, capture_output=True)
   if res.returncode != 0:
     num_failed += 1
-    with open(os.path.join(args.out_dir, "failed.txt"), "a") as f:
+    failedfile = (
+      os.path.join(args.out_dir, "failed.txt") 
+      if dstmode == "dir" else 
+      os.path.join(os.path.dirname(args.out_dir), "failed.txt")
+    )
+    with open(failedfile, "a") as f:
       f.write(protein_name + "\n")
-    tqdm.write("protein %s failed due to \n%s" % (protein_name,res.stderr))
+    tqdm.write("protein %s failed due to \n%s" % (protein_name,res.stderr.decode()))
   else:
     num_success += 1
 
