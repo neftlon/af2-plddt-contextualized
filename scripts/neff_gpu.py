@@ -144,11 +144,17 @@ def open_a3m(archive_path, a3m_path):
   return res
 
 def main(args=sys.argv):
-  parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument("-m", "--msa", metavar="MSAFILE", type=argparse.FileType("r",encoding="ascii"))
-  parser.add_argument("-am", "--archive-msa", metavar="MSAINARCHIVE", type=str, required=False)
+  parser = argparse.ArgumentParser(
+    description="generate per-residue Neff scores blazingly fast on the GPU",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+  )
+  parser.add_argument(
+    "INFILE", type=str,#argparse.FileType("r",encoding="ascii"), 
+    help="location of the .a3m file containing the MSA. "
+         "if an archive is given, this is interpreted to be relative to the archive root.",
+  )
+  parser.add_argument("OUTFILE", type=str, default="-", help="output .json file containing scores")
   parser.add_argument("-a", "--archive", metavar="TARFILE", type=str, required=False)
-  parser.add_argument("-o", "--outfile", metavar="OUTJSON", type=str, default="-")
   parser.add_argument("-d", "--device", metavar="DEV", type=str, default="cuda" if torch.cuda.is_available() else None,
                       help="pytorch device to run calculations on; options may include \"cpu\" or \"cuda\"")
   parser.add_argument("-b", "--batch-size", metavar="N", type=int, default=2**12,
@@ -188,14 +194,10 @@ def main(args=sys.argv):
   
   # open input file depending on arguments
   infile = None
-  if args.msa is not None:
-    infile = args.msa
-    if args.archive is not None or args.archive_msa is not None and args.verbose:
-      print("warning: --archive-msa/-am/--archive/-a options will be ignored when specifying an MSAFILE")
-  elif args.archive is not None and args.archive_msa is not None:
-    infile = open_a3m(args.archive,args.archive_msa)
+  if "archive" in args:
+    infile = open_a3m(args.archive,args.INFILE)
   else:
-    print("error: please specify either an MSA or an archive with path to the MSA in the archive")
+    infile = sys.stdin if args.INFILE == "-" else open(args.INFILE)
 
   if infile:
     # run calculations
@@ -203,11 +205,13 @@ def main(args=sys.argv):
     contents = json.dumps(scores)
     
     # write outfile if there was no exception
-    outfile = sys.stdout if args.outfile == "-" else open(args.outfile, "w")
+    outfile = sys.stdout if args.OUTFILE == "-" else open(args.OUTFILE, "w")
     print(contents, file=outfile)
-    if args.outfile != "-": # don't close stdout
+    if args.OUTFILE != "-": # don't close stdout
       outfile.close()
     infile.close()
+  else:
+    print("error: unable to generate Neff scores, input file is None",file=sys.stderr)
 
 if __name__ == "__main__":
   main()
