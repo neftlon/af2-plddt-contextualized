@@ -7,7 +7,7 @@ from tqdm import tqdm
 import argparse
 
 parser = argparse.ArgumentParser(
-  description="generate per-residue Neff scores blazingly fast on the GPU",
+  description="generate per-residue Neff scores for whole proteomes",
 )
 parser.add_argument(
   "-f", "--source-file", type=str, metavar="SRC",
@@ -28,11 +28,23 @@ parser.add_argument(
        "default directory is %(default)s",
 )
 parser.add_argument(
+  "-p", "--proteome-name", "--proteome", type=str, metavar="P", default="infer",
+  help="optionally specify the proteome name. set to \"infer\" to try to infer the PROTEOME_NAME "
+       "from the archive name. this is used to locate the folder containing the \"/msas/\" "
+       " subfolder containing the .a3ms inside the archive. see the --source-file option. (for "
+       "folder-based SRC, this option is not relevant.)"
+)
+parser.add_argument(
   "-n", "--neff-fast", "--nefffast", type=str, metavar="NEFFF",
   default="./scripts/neff_gpu.py",
   help="specify the script that actually generates the Neff scores for each protein. (default "
        "script path %(default)s)",
 )
+#
+# START OF PARAMS PASSED TO SUBPROCESS
+# these parameters can be set and will be passed to the respective NEFFF subprocess, 
+# which can then decide what to do with them
+#
 parser.add_argument(
   "-d", "--device", type=str, metavar="DEVICE", default="cuda", 
   help="device passed to NEFFF, can be cuda, cpu, or any other valid pytorch "
@@ -45,15 +57,15 @@ parser.add_argument(
 )
 parser.add_argument(
   "-l", "--gpu-mem-limit", type=str, metavar="M", default=None,
-  help="gpu memory size limit, passed to NEFFF. (see NEFFF documentation for details)"
+  help="gpu memory size limit, passed to NEFFF. "
 )
 parser.add_argument(
-  "-p", "--proteome-name", "--proteome", type=str, metavar="P", default="infer",
-  help="optionally specify the proteome name. set to \"infer\" to try to infer the PROTEOME_NAME "
-       "from the archive name. this is used to locate the folder containing the \"/msas/\" "
-       " subfolder containing the .a3ms inside the archive. see the --source-file option. (for "
-       "folder-based SRC, this option is not relevant.)"
+  "--mmseqs",type=str,default=dict(os.environ).get("MMSEQS","mmseqs"),
+  help="specify mmseqs executable, passed to NEFFF. (see NEFFF documentation for details)",
 )
+#
+# END OF PARAMS PASSED TO SUBPROCESS
+#
 args = parser.parse_args()
 
 # extract protein names from archive or folder
@@ -132,14 +144,14 @@ for protein_name in (pbar := tqdm(to_process)):
   sharedparams = (
     f"--batch-size {args.batch_size} "
     f"--device {args.device} "
-    f"--gpu-mem-limit {args.gpu_mem_limit}"
+    f"--gpu-mem-limit {args.gpu_mem_limit} "
+    f"--mmseqs {args.mmseqs}"
   )
   
   # determine where output should be written to
   outpref,outsuff = "","" # prefix/suffix for output writing
   if dstmode == "dir":
     outfilename = os.path.join(args.out_dir, f"{protein_name}.json")
-    outsuff = f"-o {outfilename}"
   elif dstmode == "archive":
     # NB: tar --append does not work with input from stdint (-o -), therefore we have to make a 
     # little detour and write the outputs of NEFFFAST to a TMPFILE first. after that, we can
@@ -150,24 +162,22 @@ for protein_name in (pbar := tqdm(to_process)):
       "TMPDIR=$(dirname $TMPFILE); "
       "TMPBASE=$(basename $TMPFILE); "
     )
+    outfilename = "$TMPFILE"
     tarxform = f'"s|$TMPBASE|{protein_name}.json|"' # transform tmp file name to protein json
-    outsuff = (
-      f"-o $TMPFILE "
-      f"&& tar -f {args.out_dir} --transform {tarxform} -C $TMPDIR --append $TMPBASE"
-    )
+    outsuff = f"&& tar -f {args.out_dir} --transform {tarxform} -C $TMPDIR --append $TMPBASE"
   
   # determine where the input comes from and build command
   cmd = outpref
   if srcmode == "archive":
     cmd += (
       f"tar -xOf {args.source_file} {args.proteome_name}/msas/{protein_name}.a3m | "
-      f"{args.neff_fast} -m - {sharedparams}"
+      f"{args.neff_fast} - {outfilename} {sharedparams}"
     )
   elif srcmode == "dir":
-    cmd += f"{args.neff_fast} -m {args.source_file}/{protein_name}.a3m {sharedparams}"
+    cmd += f"{args.neff_fast} {args.source_file}/{protein_name}.a3m {outfilename} {sharedparams}"
   else:
     raise ValueError("cannot determine command for srcmode %s" % srcmode)
-  cmd += f" {outsuff}" if len(outsuff) > 0 else ""
+  cmd += f" {outsuff}" if outsuff else ""
     
   # run NEFFFAST
   res = sp.run(cmd, shell=True, capture_output=True)

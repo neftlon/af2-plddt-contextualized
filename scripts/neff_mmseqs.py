@@ -10,7 +10,7 @@ import sys
 from tempfile import TemporaryDirectory
 
 # parse arguments
-parser = argparse.ArgumentParser(description="generate Neff scores from an MSA using mmseqs")
+parser = argparse.ArgumentParser(description="generate per-residue Neff scores blazingly fast with mmseqs")
 parser.add_argument("INFILE",type=argparse.FileType(),help="input .a3m MSA file")
 parser.add_argument("OUTFILE",type=argparse.FileType("w"),help="output .json file containing per-residue scores")
 parser.add_argument(
@@ -18,6 +18,10 @@ parser.add_argument(
   help="specify mmseqs executable. note that the version of mmseqs must be "
        "such that the profile2neff command is available!",
 )
+compli = "exists for compliance, is ignored."
+parser.add_argument("-d", "--device", type=str, default=None, metavar="?", required=False, help=compli)
+parser.add_argument("-b", "--batch-size", type=int, default=None, metavar="?", required=False, help=compli)
+parser.add_argument("-l", "--gpu-mem-limit", type=str, required=False, metavar="?", default=None, help=compli)
 args = parser.parse_args()
 
 with TemporaryDirectory() as tempdir:

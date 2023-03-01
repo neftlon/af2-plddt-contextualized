@@ -162,6 +162,7 @@ def main(args=sys.argv):
                            "(higher=faster, but also more (GPU) memory usage, lower=slower, but less (GPU) memory usage)")
   parser.add_argument("-l", "--gpu-mem-limit", metavar="M", type=str, default=None,
                       help="specify maximum gpu memory that should be utilized for calculations. should be given in the following form: f\"{num}{unit}\" where unit can be g for gigabytes, m for megabytes, k for kilobytes, or empty string for bytes; num specifies how many of the respective unit can be allocated. (don't specify the option to make all memory available)")
+  parser.add_argument("--mmseqs",type=str,required=False,help="exists for compliance, is ignored.")
   parser.add_argument("-v", "--verbose", default=False, action="store_true")
   args = parser.parse_args(args[1:])
   
@@ -194,7 +195,7 @@ def main(args=sys.argv):
   
   # open input file depending on arguments
   infile = None
-  if "archive" in args:
+  if args.archive is not None:
     infile = open_a3m(args.archive,args.INFILE)
   else:
     infile = sys.stdin if args.INFILE == "-" else open(args.INFILE)
