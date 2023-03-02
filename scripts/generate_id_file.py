@@ -1,6 +1,7 @@
 import argparse
 from af22c.proteome import ProteomeMSASizes
 from af22c.utils import add_msa_size_limit_options, size_limits_to_dict
+from pathlib import Path
 import logging
 import random
 import pandas as pd
@@ -16,6 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--sample_size", default=None, type=int)
     parser.add_argument("-b", "--biggest_only", action="store_true",
                         default=False)
+    parser.add_argument("-e", "--exclude_ids_in_dir", default=None, type=str)
     args = parser.parse_args()
 
     msa_sizes = ProteomeMSASizes.from_file(args.msa_sizes_file)
@@ -32,6 +34,12 @@ if __name__ == "__main__":
     logging.info(
         f"Found {len(uniprot_ids)} MSAs in size range {limits}."
     )
+
+    if args.exclude_ids_in_dir:
+        # Filter out ids for which computed neffs are already present in the given directory
+        directory = Path(args.exclude_ids_in_dir)
+        ids_in_directory = {file_path.stem for file_path in directory.glob('*.json')}
+        uniprot_ids = list(set(uniprot_ids) - ids_in_directory)
 
     if args.biggest_only:
         n = args.sample_size if args.sample_size else 1
