@@ -32,9 +32,9 @@ if __name__ == "__main__":
     msa_sizes = ProteomeMSASizes.from_file(f"data/cluster/{proteome_name}/msa_sizes.csv")
 
     correlation = ProteomeCorrelation([plddts, seths, neffs_naive, neffs_hhsuite, neffs_mmseqs], msa_sizes)
-    set_name = "300_Spartans"
+    set_name = "15k"
     plot(proteome_name, set_name, correlation)
 
-    correlation = ProteomeCorrelation([plddts, seths, neffs_naive, neffs_hhsuite, neffs_mmseqs], msa_sizes)
-    set_name = "15k"
+    correlation = ProteomeCorrelation([plddts, seths, neffs, neffs_naive, neffs_hhsuite, neffs_mmseqs], msa_sizes)
+    set_name = "300_Spartans"
     plot(proteome_name, set_name, correlation)
