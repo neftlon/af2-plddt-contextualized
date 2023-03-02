@@ -169,8 +169,9 @@ for protein_name in (pbar := tqdm(to_process)):
   # determine where the input comes from and build command
   cmd = outpref
   if srcmode == "archive":
+    z = "z" if args.source_file.endswith(".gz") else ""
     cmd += (
-      f"tar -xOf {args.source_file} {args.proteome_name}/msas/{protein_name}.a3m | "
+      f"tar -x{z}Of {args.source_file} {args.proteome_name}/msas/{protein_name}.a3m | "
       f"{args.neff_fast} - {outfilename} {sharedparams}"
     )
   elif srcmode == "dir":
