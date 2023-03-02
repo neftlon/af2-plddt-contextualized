@@ -727,6 +727,10 @@ class ProteomeSETHPreds(ProteomewidePerResidueMetric):
 class ProteomeCorrelation:
     scores: list[ProteomewidePerResidueMetric]
     msa_sizes: ProteomeMSASizes
+    p_corr_array: None | np.ndarray = field(init=False, default=None)
+    df_index: None | pd.Index = field(init=False, default=None)
+    prot_ids_in_order: None | list[str] = field(init=False, default=None)
+
 
     def _get_shared_ids(self) -> set[str]:
         score_ids = [score.get_uniprot_ids() for score in self.scores]
@@ -776,7 +780,13 @@ class ProteomeCorrelation:
         max_q_len=np.inf,
         min_n_seq=0,
         max_n_seq=np.inf,
+        load_previous=False,
+        uniprot_ids=None
     ):
+        # TODO remove limits. Filtering should be done before by ids
+        if load_previous and self.p_corr_array:
+            return self.p_corr_array, self.df_index, self.prot_ids_in_order
+
         # compute protein IDs
         prot_ids = self.get_uniprot_ids()
 
@@ -819,5 +829,7 @@ class ProteomeCorrelation:
         # TODO replace p_corr_array and df_index by a multiindex dataframe
         p_corr_array = np.stack(p_corr_list)
 
-        # TODO Add caching of p_corr_array in order to speed up plotting
+        self.p_corr_array = p_corr_array
+        self.df_index = df_index
+        self.prot_ids_in_order = prot_ids_in_order
         return p_corr_array, df_index, prot_ids_in_order
