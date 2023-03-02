@@ -20,14 +20,14 @@ def style_plots(axs, x_labels, y_labels, x_ticks=None, y_ticks=None, x_limits=No
 
     # Add x labels to the bottom of the matrix
     for i in range(n):
-        axs[-1, i].set_xlabel(x_labels[i])
+        axs[-1, i].set_xlabel(x_labels[i], rotation=45)
         if x_ticks:
             axs[-1, i].set_xticks(x_ticks)
             axs[-1, i].set_xticklabels(x_ticks)
 
     # Add y labels to the left of the matrix and ticks to the leftmost plot
     for i in range(n):
-        axs[i, 0].set_ylabel(y_labels[i+1])  # +1, because the diagonal is not drawn
+        axs[i, 0].set_ylabel(y_labels[i+1], rotation=45, ha='right')  # +1, because the diagonal is not drawn
         if y_ticks:
             axs[i, 0].set_yticks(y_ticks)
             axs[i, 0].set_yticklabels(y_ticks)
