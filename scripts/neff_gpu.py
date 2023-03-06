@@ -9,6 +9,7 @@ import argparse
 import time
 from string import ascii_lowercase
 from itertools import chain
+import numpy as _ # prevent "Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is incompatible with libgomp.so.1 library"
 import torch
 from tqdm import tqdm
 from af22c.proteome import MultipleSeqAlign
