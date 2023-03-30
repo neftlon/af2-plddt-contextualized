@@ -1,6 +1,8 @@
 import seaborn as sns
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from typing import Union
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from af22c.proteome import ProteomeMSASizes, ProteomeCorrelation
 from af22c.plots.style import style
