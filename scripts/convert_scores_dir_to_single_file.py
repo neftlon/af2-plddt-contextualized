@@ -1,8 +1,13 @@
 import os
 import json
+import argparse
 
-input_dir = "data/cluster/UP000005640_9606/neffs_naive"
-output_file = "data/cluster/UP000005640_9606/UP000005640_9606_neff_naive.json"
+parser = argparse.ArgumentParser()
+parser.add_argument("input_dir", help="Input directory")
+parser.add_argument("output_file", help="Output file")
+args = parser.parse_args()
+input_dir = args.input_dir
+output_file = args.output_file
 
 data = {}
 for filename in os.listdir(input_dir):
