@@ -27,7 +27,10 @@ WORKDIR /app
 RUN apt update && apt install -y build-essential gdb python3
 
 # copy mmseqs executable from builder to container
-COPY --from=builder /app/MMseqs2/build/bin/mmseqs /mmseqs
+COPY --from=builder /app/MMseqs2/build/bin/mmseqs /app/mmseqs
 
 # copy scripts to container
-COPY ./scripts/neff_mmseqs.py /neff_mmseqs.py
+COPY ./scripts/neff_mmseqs.py /app/neff_mmseqs.py
+
+# add script and mmseqs to path
+ENV PATH="${PATH}:/app"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# pick K proteins randomly, run benchmarks for different methods, and store the results of each run in a CSV file
+# pick K proteins randomly, run benchmarks for different methods, and store the results of each run in a CV file
 
 import argparse
 import os
@@ -11,6 +11,8 @@ import tempfile
 from timeit import timeit
 from tqdm import tqdm
 
+# TODO: check whether docker containers are already available on _this_ system
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-o", "--out", type=str, default="./data/bench.csv", help="CSV output file for benchmark results")
 parser.add_argument("--mmseqs", type=str, default=os.environ.get("MMSEQS"), help="specify mmseqs executable location")
@@ -18,7 +20,10 @@ args = parser.parse_args()
 
 PROTEOME_NAME = "UP000005640_9606"
 PROTEOME_FILE = f"./data/{PROTEOME_NAME}.tar"
-SCRIPTS = ["./scripts/neff_gpu.py", "./scripts/neff_mmseqs.py"]
+SCRIPTS = [
+  #"./scripts/neff_gpu.py",
+  "docker run -i --rm neff-mmseqs neff_mmseqs.py",
+]
 K = 50 # number of sampled proteins
 random.seed(42) # reproducibility
 
@@ -54,15 +59,19 @@ for protein_name in tqdm(protein_names, desc="timing proteins"):
     # run scripts
     for script in (pbar := tqdm(SCRIPTS, leave=False)):
       pbar.set_description("checking %s" % script)
+      duration = -1
       try:
         duration = timeit(lambda: sp.run(
-          f"{script} {tf.name} - {script_args}",
-          shell=True, capture_output=True, #check=True,
+          # the pipe is required such that `cat` is executed on _this_ host machine,
+          # whilst the script might be in a container.
+          f"cat {tf.name} | {script} - - {script_args}",
+          shell=True, capture_output=True, check=True,
         ), number=1)
       except sp.CalledProcessError as e:
         # use `repr` to escape string for CSV file
         status = f"returncode={e.returncode},output={repr(e.output)}"
-      else: status = "PASS"
+      else:
+        status = "PASS" # mark run as "no error"
       finally:
         data.append({
           "protein": protein_name,
