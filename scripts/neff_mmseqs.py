@@ -46,7 +46,7 @@ with TemporaryDirectory() as tempdir:
   profile_filename = os.path.join(tempdir,"profileDb")
   profileret = sp.run(
     "%s msa2profile %s %s" % (args.mmseqs,dbfilename,profile_filename),
-    shell=True,capture_output=True,
+    shell=True,stdout=sp.PIPE,stderr=sp.PIPE,
   )
   if profileret.returncode != 0:
     print("error: failed to convert MSA to profile.",file=sys.stderr)
@@ -58,7 +58,7 @@ with TemporaryDirectory() as tempdir:
   mmseqs_neff_filename = os.path.join(tempdir,"neff.txt")
   neffret = sp.run(
     "%s profile2neff %s %s" % (args.mmseqs,profile_filename,mmseqs_neff_filename),
-    shell=True,capture_output=True,
+    shell=True,stdout=sp.PIPE,stderr=sp.PIPE,
   )
   if neffret.returncode != 0:
     print("error: failed to extract Neff scores from profileDb.",file=sys.stderr)
