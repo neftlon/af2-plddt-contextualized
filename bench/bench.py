@@ -62,6 +62,7 @@ for protein_name in tqdm(protein_names, desc="timing proteins"):
     for script, cmd in (pbar := tqdm(SCRIPTS, leave=False)):
       pbar.set_description("checking %s" % script)
       duration = -1
+      status = "???" # initialize for pylint
       try:
         duration = timeit(lambda: sp.run(
           # the pipe is required such that `cat` is executed on _this_ host machine,
