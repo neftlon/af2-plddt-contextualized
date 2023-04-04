@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# execute this script from within the project's root directory
+
 mkdir -p ./data
 pushd ./data
 # download the human proteome predictions from the AlphaFold 2 database
