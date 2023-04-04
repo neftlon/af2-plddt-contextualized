@@ -24,6 +24,7 @@ SCRIPTS = [
   ("neff", "docker run -i --rm --gpus all neff-gpu neff_gpu.py"),
   ("gapcount", "docker run -i --rm --gpus all neff-gpu neff_gpu.py --mode gapcount"),
   ("mmseqs2", "docker run -i --rm neff-mmseqs neff_mmseqs.py"),
+  ("hhsuite", "docker run -i --rm neff-hhsuite neff_hhsuite.py"),
 ]
 K = 50 # number of sampled proteins
 random.seed(42) # reproducibility

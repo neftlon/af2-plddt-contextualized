@@ -13,4 +13,8 @@ We provide docker containers with the environment necessary to benchmark each me
 docker build -t neff-mmseqs:latest -f docker/mmseqs/Dockerfile .
 # build "our" container
 docker build -t neff-gpu:latest -f docker/neffgpu/Dockerfile .
+# build hhsuite container
+docker build -t neff-hhsuite:latest -f docker/hhsuite/Dockerfile .
 ```
+
+Please note that `neff-gpu` requires the `--gpus all` flag to be available for Docker.
