@@ -14,6 +14,8 @@ import torch
 from tqdm import tqdm
 from af22c.proteome import MultipleSeqAlign
 from af22c.utils import as_handle
+from typing import NamedTuple
+from contextlib import contextmanager
 
 def loadmsa(path, stoi):
   """load an MSA as an encoded tensor from a file-like object and a mapping dict stoi"""
@@ -42,97 +44,124 @@ def loadmsa(path, stoi):
       idx += 1
     return encmsa
 
-def pwseq(encmsa, device=None, batch_size=2**12, verbose=True, **kwargs):
-  """return pairwise sequence identity calculated with pytorch"""
-  num_seqs,query_len = encmsa.shape
+class EncMsa(NamedTuple):
+  """Store an encoded MSA with vocabulary and means of encoding"""
+  vocab: list[str] # list of characters used in the MSA, including gaps
+  stoi: dict # mapping: "residue character" -> int
+  itos: dict # mapping: int -> "residue character"
+  data: torch.Tensor # (N, L) matrix, where N is the number of sequences and L is the length of the query sequence
+  gaptok: int # integer version of the gap token
   
-  # calculate all pairs for which pairwise sequence identities need to be calculated
-  pairs = torch.triu_indices(*(num_seqs,)*2, 1, device=device).T
+  @property
+  def shape(self):
+    return self.data.shape
   
-  # each batch should yield a matrix with batch_size elements
-  num_batches = (len(pairs) + batch_size - 1) // batch_size
-  num_full_batches = len(pairs) // batch_size
+  @property
+  def device(self):
+    return self.data.device
   
-  batch_pairs = pairs[:-(len(pairs)%batch_size)]
-  rest_pairs = pairs[-(len(pairs)%batch_size):]
-  
-  # put pairs into batches
-  batches = batch_pairs.view(max(num_full_batches,1), -1, 2)
-  if num_batches != num_full_batches:
-    batches = chain(batches, [rest_pairs])
-    
-  # one batch contains batch_size many pairs, which yields batch_size many similarity scores because the 
-  # similarity matrix is symmetric.
-  bpwseq = torch.eye(num_seqs, device=device) # matrix containing similarity scores for two sequences
-  
-  for batch_pairs in (
-    tqdm(batches, total=num_batches, desc="running batches")
-    if verbose else
-    batches
-  ):
-    # extract sequences in batch
-    batch_seqs = encmsa[batch_pairs]
+  def to(self, device):
+    """mimic torch behavior and move data to `device`. (return a new tuple since `self` is immutable.)"""
+    params = self._asdict()
+    params["data"] = self.data.to(device)
+    return EncMsa(**params)
 
-    # calculate pairwise distances 
-    batch_pwdists = torch.sum(batch_seqs[:,0,:] != batch_seqs[:,1,:], axis=-1)
-    batch_pwseq = 1 - batch_pwdists / query_len
+@contextmanager
+def as_encmsa(thing):
+  """convert "any"`thing` (that is convertible to MSA) to an MSA"""
+  if isinstance(thing, EncMsa): # invariant against `EncMsa`s
+    yield thing
+  else:
+    # vocabulary and conversion
+    vocab = '-ACDEFGHIKLMNPQRSTVWXY' # TODO: do we want to infer vocab?
+    stoi = {c:i for i, c in enumerate(vocab)}
+    itos = {i:c for c, i in stoi.items()}
+    gaptok = stoi['-']
     
-    # put at right location in result matrix (and make symmetric)
-    bpwseq[batch_pairs[:,0],batch_pairs[:,1]] = batch_pwseq
-    bpwseq[batch_pairs[:,1],batch_pairs[:,0]] = batch_pwseq
+    # try to convert the MSA if not done yet
+    if isinstance(thing, MultipleSeqAlign):
+      # collect all sequences, including query
+      allseqs = [thing.query_seq] + [match.aligned_seq for match in thing.matches]
+      encmsa = torch.zeros((len(thing.matches)+1, len(thing.query_seq)))
+      for seqidx, seq in tqdm(enumerate(allseqs), desc="converting msa"):
+        for colidx, colval in enumerate(seq):
+          encmsa[seqidx, colidx] = stoi[colval]
+    elif isinstance(thing, torch.Tensor):
+      encmsa = thing
+    elif isinstance(thing, str) or isinstance(thing, io.TextIOWrapper):
+      encmsa = loadmsa(thing, stoi)
+    else:
+      raise ValueError(f"unable to interpret type of input as msa ({type(msa)=})")
+    yield EncMsa(vocab, stoi, itos, encmsa, gaptok)
+
+def pwseq(msa, device=None, batch_size=2**12, verbose=True, **kwargs):
+  """return pairwise sequence identity calculated with pytorch"""
+  with as_encmsa(msa) as encmsa:
+    num_seqs,query_len = encmsa.shape
+    
+    # calculate all pairs for which pairwise sequence identities need to be calculated
+    pairs = torch.triu_indices(*(num_seqs,)*2, 1, device=device).T
+    
+    # each batch should yield a matrix with batch_size elements
+    num_batches = (len(pairs) + batch_size - 1) // batch_size
+    num_full_batches = len(pairs) // batch_size
+    
+    batch_pairs = pairs[:-(len(pairs)%batch_size)]
+    rest_pairs = pairs[-(len(pairs)%batch_size):]
+    
+    # put pairs into batches
+    batches = batch_pairs.view(max(num_full_batches,1), -1, 2)
+    if num_batches != num_full_batches:
+      batches = chain(batches, [rest_pairs])
+      
+    # one batch contains batch_size many pairs, which yields batch_size many similarity scores because the 
+    # similarity matrix is symmetric.
+    bpwseq = torch.eye(num_seqs, device=device) # matrix containing similarity scores for two sequences
+    
+    for batch_pairs in (
+      tqdm(batches, total=num_batches, desc="running batches")
+      if verbose else
+      batches
+    ):
+      # extract sequences in batch
+      batch_seqs = encmsa.data[batch_pairs]
+
+      # calculate pairwise distances 
+      batch_pwdists = torch.sum(batch_seqs[:,0,:] != batch_seqs[:,1,:], axis=-1)
+      batch_pwseq = 1 - batch_pwdists / query_len
+      
+      # put at right location in result matrix (and make symmetric)
+      bpwseq[batch_pairs[:,0],batch_pairs[:,1]] = batch_pwseq
+      bpwseq[batch_pairs[:,1],batch_pairs[:,0]] = batch_pwseq
+    
+    return bpwseq
   
-  return bpwseq
-  
-def gapcount(encmsa, weights=None, gaptok=None, stoi=None, nongap=False, **kwargs):
+def gapcount(msa, weights=None, nongap=False, **kwargs):
   """
   calculate number of gaps in each msa column. returns a vector of length query_len.
   weights can be specified to weight each sequence in the msa column.
   if nongap=False (default), gaps will be counted; otherwise non-gaps will be counted.
-  the gaps are identified by gaptok, which can be the token id for gaps. alternatively, a
-  dictionary stoi can be supplied, where the gaptok is looked up.
   """
-  if gaptok is None:
-    assert stoi is not None
-    gaptok = stoi['-']
-  gapindicator = encmsa != gaptok if nongap else encmsa == gaptok
-  if weights is not None:
-    return weights @ gapindicator.float()
-  return torch.sum(gapindicator, dim=0)
+  with as_encmsa(msa) as encmsa:
+    gapindicator = encmsa.data != encmsa.gaptok if nongap else encmsa.data == encmsa.gaptok
+    if weights is not None:
+      return weights @ gapindicator.float()
+    return torch.sum(gapindicator, dim=0)
 
 def neff(msa, pwseqfn=pwseq, seqid_thres=0.8, **kwargs):
   """calculate neff scores for an encoded msa."""
   device = kwargs.get("device")
   
-  # encoding/decoding  
-  vocab = '-ACDEFGHIKLMNPQRSTVWXY' # TODO: do we want to infer vocab?
-  stoi = {c:i for i, c in enumerate(vocab)}
-  itos = {i:c for c, i in stoi.items()}
-  gaptok = stoi['-']
-  
-  # encode msa if necessary
-  if isinstance(msa, MultipleSeqAlign):
-    # collect all sequences, including query
-    allseqs = [msa.query_seq] + [match.aligned_seq for match in msa.matches]
-    encmsa = torch.zeros((len(msa.matches)+1, len(msa.query_seq)))
-    for seqidx, seq in tqdm(enumerate(allseqs), desc="converting msa"):
-      for colidx, colval in enumerate(seq):
-        encmsa[seqidx, colidx] = stoi[colval]
-  elif isinstance(msa, torch.Tensor):
-    encmsa = msa
-  elif isinstance(msa, str) or isinstance(msa, io.TextIOWrapper):
-    encmsa = loadmsa(msa, stoi)
-  else:
-    raise ValueError(f"unable to interpret type of input msa ({type(msa)=})")
-  
-  # put msa on desired device, if it is not there already
-  if encmsa.device != device:
-    encmsa = encmsa.to(device)
-  
-  num_seqs, query_len = encmsa.shape
-  eq = pwseqfn(encmsa, **kwargs)
-  # calculate neff weights (dim can be 0 or 1, does not matter because pwseq is symmetric)
-  neffweights = 1 / torch.sum(eq >= seqid_thres, dim=0)
-  return gapcount(encmsa, weights=neffweights, nongap=True, gaptok=gaptok, **kwargs)
+  with as_encmsa(msa) as encmsa:
+    # put msa on desired device, if it is not there already
+    if encmsa.device != device:
+      encmsa = encmsa.to(device)
+    
+    num_seqs, query_len = encmsa.shape
+    eq = pwseqfn(encmsa, **kwargs)
+    # calculate neff weights (dim can be 0 or 1, does not matter because pwseq is symmetric)
+    neffweights = 1 / torch.sum(eq >= seqid_thres, dim=0)
+    return gapcount(encmsa, weights=neffweights, nongap=True, **kwargs)
 
 def open_a3m(archive_path, a3m_path):
   """
@@ -156,6 +185,12 @@ def main(args=sys.argv):
   )
   parser.add_argument("OUTFILE", type=str, default="-", help="output .json file containing scores")
   parser.add_argument("-a", "--archive", metavar="TARFILE", type=str, required=False)
+  parser.add_argument(
+    "-m", "--mode", metavar="MODE", type=str, choices=["neff", "gapcount"], default="neff", 
+    help="pick one of two computation modes (MODE=\"neff\" or MODE=\"gapcount\") for scores: (neff) score "       
+         "calculation with weighting by pairwise sequence identity and (gapcount) score calculation "
+         "without expensive weighting, only count gaps in each MSA column"
+  )
   parser.add_argument("-d", "--device", metavar="DEV", type=str, default="cuda" if torch.cuda.is_available() else None,
                       help="pytorch device to run calculations on; options may include \"cpu\" or \"cuda\"")
   parser.add_argument("-b", "--batch-size", metavar="N", type=int, default=2**12,
@@ -202,8 +237,11 @@ def main(args=sys.argv):
     infile = sys.stdin if args.INFILE == "-" else open(args.INFILE)
 
   if infile:
-    # run calculations
-    scores = neff(infile, device=args.device, batch_size=args.batch_size, verbose=args.verbose).tolist()
+    # run calculations (either calculate full neff scores or only count gaps)
+    scores = {
+      "neff": lambda: neff(infile, device=args.device, batch_size=args.batch_size, verbose=args.verbose).tolist(),
+      "gapcount": lambda: gapcount(infile, device=args.device, batch_size=args.batch_size, verbose=args.verbose).tolist(),
+    }[args.mode]()
     contents = json.dumps(scores)
     
     # write outfile if there was no exception
