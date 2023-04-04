@@ -21,7 +21,7 @@ args = parser.parse_args()
 PROTEOME_NAME = "UP000005640_9606"
 PROTEOME_FILE = f"./data/{PROTEOME_NAME}.tar"
 SCRIPTS = [
-  #"./scripts/neff_gpu.py",
+  "docker run -i --rm --gpus all neff-gpu neff_gpu.py",
   "docker run -i --rm neff-mmseqs neff_mmseqs.py",
 ]
 K = 50 # number of sampled proteins

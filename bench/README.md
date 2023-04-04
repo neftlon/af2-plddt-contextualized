@@ -11,4 +11,6 @@ We provide docker containers with the environment necessary to benchmark each me
 ```bash
 # build mmseqs container
 docker build -t neff-mmseqs:latest -f docker/mmseqs/Dockerfile .
+# build "our" container
+docker build -t neff-gpu:latest -f docker/neffgpu/Dockerfile .
 ```
