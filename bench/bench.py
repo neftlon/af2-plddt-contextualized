@@ -21,8 +21,9 @@ args = parser.parse_args()
 PROTEOME_NAME = "UP000005640_9606"
 PROTEOME_FILE = f"./data/{PROTEOME_NAME}.tar"
 SCRIPTS = [
-  "docker run -i --rm --gpus all neff-gpu neff_gpu.py",
-  "docker run -i --rm neff-mmseqs neff_mmseqs.py",
+  ("neff", "docker run -i --rm --gpus all neff-gpu neff_gpu.py"),
+  ("gapcount", "docker run -i --rm --gpus all neff-gpu neff_gpu.py --mode gapcount"),
+  ("mmseqs2", "docker run -i --rm neff-mmseqs neff_mmseqs.py"),
 ]
 K = 50 # number of sampled proteins
 random.seed(42) # reproducibility
@@ -33,7 +34,7 @@ if args.mmseqs is not None:
 
 # extract ids from tar file 
 tarres = sp.run(
-  # list tar file contents and remove those ending with a "/" (=directories)
+  # list tar file contents and remove entries ending with a "/" (=directories)
   f"tar -tf {PROTEOME_FILE} | grep -e \"[^/]$\"",
   shell=True, capture_output=True, check=True
 )
@@ -57,14 +58,14 @@ for protein_name in tqdm(protein_names, desc="timing proteins"):
     )
     
     # run scripts
-    for script in (pbar := tqdm(SCRIPTS, leave=False)):
+    for script, cmd in (pbar := tqdm(SCRIPTS, leave=False)):
       pbar.set_description("checking %s" % script)
       duration = -1
       try:
         duration = timeit(lambda: sp.run(
           # the pipe is required such that `cat` is executed on _this_ host machine,
           # whilst the script might be in a container.
-          f"cat {tf.name} | {script} - - {script_args}",
+          f"cat {tf.name} | {cmd} - - {script_args}",
           shell=True, capture_output=True, check=True,
         ), number=1)
       except sp.CalledProcessError as e:
@@ -76,6 +77,7 @@ for protein_name in tqdm(protein_names, desc="timing proteins"):
         data.append({
           "protein": protein_name,
           "script": script,
+          "cmd": cmd,
           "run_seconds": duration,
           "status": status,
         })
