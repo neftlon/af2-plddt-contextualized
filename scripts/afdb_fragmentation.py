@@ -10,7 +10,7 @@ import re
 from collections import defaultdict
 
 # parse arguments
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
   "NAMES", type=argparse.FileType(),
   help="specify a list of structure prediction files, specify - to read from stdin"
@@ -18,7 +18,7 @@ parser.add_argument(
 parser.add_argument(
   "-r", "--regex", type=str,
   help="specify a regex string to parse `id` and `fragnum` from",
-  default=r"AF-(?P<id>([A-Z]|[0-9])+)-F(?P<fragnum>[0-9]+)-model_v3\.pdb\.gz"
+  default=r"AF-(?P<id>([A-Z]|[0-9])+)-F(?P<fragnum>[0-9]+)-model_v[0-9]+\.pdb\.gz"
 )
 args = parser.parse_args()
 
