@@ -51,3 +51,4 @@ for protid, numfrags in id2count.items():
 print("number of fragments\toccurrences")
 for numfrags, numoccurrences in counts.items():
   print(numfrags, numoccurrences, sep="\t")
+print("number of proteins with multiple fragments:",sum(count for numfrags, count in counts.items() if numfrags != 1))
