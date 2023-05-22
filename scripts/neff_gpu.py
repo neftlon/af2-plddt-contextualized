@@ -12,7 +12,6 @@ from itertools import chain
 import numpy as _ # prevent "Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is incompatible with libgomp.so.1 library"
 import torch
 from tqdm import tqdm
-from af22c.proteome import MultipleSeqAlign
 from af22c.utils import as_handle
 from typing import NamedTuple
 from contextlib import contextmanager
@@ -79,19 +78,12 @@ def as_encmsa(thing):
     gaptok = stoi['-']
     
     # try to convert the MSA if not done yet
-    if isinstance(thing, MultipleSeqAlign):
-      # collect all sequences, including query
-      allseqs = [thing.query_seq] + [match.aligned_seq for match in thing.matches]
-      encmsa = torch.zeros((len(thing.matches)+1, len(thing.query_seq)))
-      for seqidx, seq in tqdm(enumerate(allseqs), desc="converting msa"):
-        for colidx, colval in enumerate(seq):
-          encmsa[seqidx, colidx] = stoi[colval]
-    elif isinstance(thing, torch.Tensor):
+    if isinstance(thing, torch.Tensor):
       encmsa = thing
     elif isinstance(thing, str) or isinstance(thing, io.TextIOWrapper):
       encmsa = loadmsa(thing, stoi)
     else:
-      raise ValueError(f"unable to interpret type of input as msa ({type(msa)=})")
+      raise ValueError(f"unable to interpret type of input as msa ({type(thing)=})")
     yield EncMsa(vocab, stoi, itos, encmsa, gaptok)
 
 def pwseq(msa, device=None, batch_size=2**12, verbose=True, **kwargs):
