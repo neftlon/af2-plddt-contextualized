@@ -6,7 +6,7 @@ import sys
 import tarfile
 import argparse
 import torch
-from af22c.neff import neff, gapcount
+from af22c import neff, gapcount
 
 def open_a3m(archive_path, a3m_path):
   """

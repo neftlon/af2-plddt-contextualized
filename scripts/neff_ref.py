@@ -4,7 +4,7 @@ import json
 import sys
 import os
 import argparse
-from af22c.neff_ref import neff_ref
+from af22c import neff_ref
 
 def main(args=sys.argv):
   # parse arguments
