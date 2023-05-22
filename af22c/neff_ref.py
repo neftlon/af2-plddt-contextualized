@@ -259,7 +259,7 @@ def neff_ref(msa, mode="neff"):
     msa = MultipleSeqAlign.from_a3m(msa)
     if mode == "neff":
         return msa.compute_neff()
-    elif mode == "gapcount":
+    elif mode == "gapcount" or mode == "naive":
         return msa.compute_neff_naive()
     else:
         raise ValueError(f"Unknown mode: {mode}")
