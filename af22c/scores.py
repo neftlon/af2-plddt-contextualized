@@ -4,7 +4,7 @@ import numpy as _ # prevent "Error: mkl-service + Intel(R) MKL: MKL_THREADING_LA
 import torch
 from tqdm import tqdm
 
-def pwseq(msa, device=None, batch_size=2**12, verbose=True, **kwargs):
+def pwseq(msa, device=None, batch_size=2**12, verbose=False, **kwargs):
   """return pairwise sequence identity calculated with pytorch"""
   with as_encmsa(msa) as encmsa:
     num_seqs,query_len = encmsa.shape
