@@ -1,4 +1,4 @@
-from af22c.utils import as_handle
+from af22c.utils import as_handle, TarLoc
 from contextlib import contextmanager
 import io
 from string import ascii_lowercase
@@ -70,8 +70,17 @@ def as_encmsa(thing):
     # try to convert the MSA if not done yet
     if isinstance(thing, torch.Tensor):
       encmsa = thing
-    elif isinstance(thing, str) or isinstance(thing, io.TextIOWrapper):
+    elif isinstance(thing, str) or isinstance(thing, io.TextIOWrapper) or isinstance(thing, TarLoc):
       encmsa = loadmsa(thing, stoi)
+    elif isinstance(thing, list):
+      encseqs = []
+      for idx, seq in enumerate(thing):
+        if not isinstance(seq, str):
+          raise ValueError(f"unable to interpret type {type(seq)} of sequence #{idx}")
+        if not all(ch in vocab for ch in seq):
+          raise ValueError(f"sequence #{idx} contains invalid characters")
+        encseqs.append([stoi[ch] for ch in seq if not ch in ascii_lowercase])
+      encmsa = torch.tensor(encseqs, dtype=torch.uint8)
     else:
       raise ValueError(f"unable to interpret type of input as msa ({type(thing)=})")
     yield EncMsa(vocab, stoi, itos, encmsa, gaptok)
