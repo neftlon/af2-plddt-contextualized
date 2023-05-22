@@ -3,12 +3,11 @@
 This project aims at understanding and quantifying the relationship betweeen pLDDTs, MSAs and embedding-based disorder
 predictions.
 
-
-## Usage
+Therefore we developed a Python library and accompanying scripts to calculate Neff (number of effective sequences) and gap count scores.
 
 The commands described in the following subchapters are meant to be executed in a shell in the project root directory.
 
-### 0. Environment
+## Installation
 
 The project uses Python for scripts. The root directory contains a `environment.yml` file that can be used to create an
 appropriate environment.
@@ -26,6 +25,59 @@ Install the `af22c` package in development mode with the following command in th
 ```bash
 pip install -e .
 ```
+
+## Usage
+
+Our code can be used either as a Python library or as standalone programs. In the following, we present common usecases for both methods.
+
+### Library
+
+You can use our library to calculate Neff or gapcount scores from an MSA in the following way. Specify a torch device in the functions to use GPU acceleration.
+
+```python
+>>> from af22c import neff, gapcount
+>>> msa = ["SEQWENCE","--QWENCE","--QWEN--","--QEEN--"]; print("\n".join(msa))
+SEQWENCE
+--QWENCE
+--QWEN--
+--QEEN--
+>>> # calculate Neff and gapcount scores for the MSA
+>>> neff(msa, device="cuda")
+tensor([1., 1., 3., 3., 3., 3., 2., 2.])
+>>> gapcount(msa, device="cuda")
+tensor([3, 3, 0, 0, 0, 0, 2, 2])
+```
+
+In our case, we have MSAs for the entire human proteome. They are inside a .tar file. With our library, you can extract .a3m MSA files from a .tar file and use it as an input for score calculation. In the following, we show how you can calculate an protein-specific average Neff score for [APP](https://en.wikipedia.org/wiki/Amyloid-beta_precursor_protein).
+
+```python
+>>> from af22c import neff
+>>> from af22c.utils import ProteomeTar
+>>> human = ProteomeTar("data/UP000005640_9606.tar")
+>>> app = human.get_protein_location("Q92624")
+>>> neff(app, device="cuda").mean()
+tensor(209.4100, device='cuda:0')
+```
+
+_Hint:_ To get output while running, you can specify `verbose=True`. For debugging CUDA out-of-memory issues when running `neff`, you can lower the `batch_size` (default: `2**12`) parameter used for pairwise sequence identity calculation.
+
+_TODO: say that we also have ref impl available_
+
+### Scripts
+
+We also provide scripts to extract Neff scores on the command line.
+
+```bash
+./scripts/neff_gpu.py ./data/A0A0A0MRZ7.a3m /tmp/neff.json
+cat /tmp/neff.json # only truncated output shown:
+[1564.3165283203125, 1660.9517822265625, 1906.4017333984375, 1983.4613037109375, 2283.94921875, 2345.59912109375, 2614.16015625, 2852.3935546875, 2907.48046875, 3112.87890625, 3278.29541015625, 3376.743896484375, 3506.353759765625, ...]
+```
+
+_TODO: say that we also have support for .tar files containing entire proteomes._
+
+## pLDDT
+
+Our project deals with the comparison between Neff, SETH predictions, and pLDDT scores. Therefore, we need utilities to obtain and handle these pLDDT scores. We include our utility programs in this repository. In the following, we will show how one can gather pLDDT scores from AlphaFold 2's database.
 
 For using the download script, the `wget` utility must be installed on the system.
 
@@ -49,7 +101,7 @@ files predicted by AlphaFold 2. The `extract_plddts.py` utility extracts and sto
 inside the `./data` subdirectory.
 
 ```shell
-./af22c/extract_plddts.py
+./scripts/extract_plddts.py
 ```
 
 Note, that the program extracts the `.tar` file downloaded from the AlphaFold 2 database inside a temporary directory.
@@ -64,16 +116,7 @@ filters the pLDDTs to only contain non-fragmented proteins and stores the filter
 file inside the `./data` subdirectory.
 
 ```shell
-./af22c/filter_protfrags.py
-```
-
-### 4. Run some visualization
-
-The visualization not only loads the SETH predictions but also the extracted pLDDT scores. A small
-[streamlit](https://streamlit.io/) app can be used to visualize both datasets.
-
-```shell
-python3 -m streamlit run af22c/load_data.py
+./scripts/filter_protfrags.py
 ```
 
 ## Miscellaneous
