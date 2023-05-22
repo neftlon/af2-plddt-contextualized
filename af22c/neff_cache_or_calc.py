@@ -11,8 +11,8 @@ import signal
 import time
 from types import NoneType
 
-from af22c.load_msa import calc_neff_by_id
-from af22c.utils import get_raw_proteome_name, warn_once
+from af22c.utils import get_raw_proteome_name, warn_once, ProteomeTar
+from af22c.neff_ref import neff_ref
 
 
 @dataclass
@@ -114,7 +114,9 @@ class NeffCacheOrCalc:
             return scores
 
         # if Neffs are not cached, calculate them from proteome and store them in cache
-        scores = calc_neff_by_id(self.proteome_filename, uniprot_id)
+        tar = ProteomeTar(self.proteome_filename)
+        loc = tar.get_protein_location(uniprot_id)
+        scores = neff_ref(loc)
         self.store_in_cache(uniprot_id, scores)
         return scores
 
@@ -190,6 +192,7 @@ def main():
     # calculate which proteins need to be cached
     ids_to_process = set(avail_prot_ids) - set(cached_prot_ids)
 
+    tar = ProteomeTar(neff_src.proteome_filename)
     for uniprot_id in ids_to_process:
         # break early if we caught an interrupt
         if keyboard_interrupt_caught:
@@ -198,7 +201,8 @@ def main():
         # the long calculation can be aborted
         logging.info(f"processing {uniprot_id}")
         logging.info(f" calculating scores...")
-        scores = calc_neff_by_id(neff_src.proteome_filename, uniprot_id)
+        
+        scores = neff_ref(tar.get_protein_location(uniprot_id))
 
         # write outputs
         is_in_write = True

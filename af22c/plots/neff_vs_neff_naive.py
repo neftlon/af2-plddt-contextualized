@@ -7,7 +7,8 @@ import numpy as np
 import argparse
 import logging
 
-from af22c.load_msa import calc_naive_neff_by_id
+from af22c.utils import ProteomeTar
+from af22c.neff_ref import neff_ref
 from af22c.neff_cache_or_calc import NeffCacheOrCalc
 
 
@@ -83,7 +84,8 @@ def main():
 
     # obtain scores
     neffs = neff_src.get_neffs(args.protein_id)
-    neffs_naive = calc_naive_neff_by_id(args.proteome_file, args.protein_id)
+    tar = ProteomeTar(neff_src.proteome_filename)
+    neffs_naive = neff_ref(tar.get_protein_location(args.protein_id), "gapcount")
 
     # calculate correlation
     pearson = np.corrcoef(np.stack((neffs, neffs_naive)))[0, 1]
