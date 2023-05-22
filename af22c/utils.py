@@ -9,12 +9,44 @@ from functools import lru_cache
 import logging
 from pathlib import Path
 from contextlib import contextmanager
-from typing import IO
+from typing import IO, NamedTuple
 from argparse import ArgumentParser
+from dataclasses import dataclass
 
 
 LimitsType = tuple[float | int | None, float | int | None] | None
 
+# TODO: something like this probably exists, find out where something like this is.
+class TarLoc(NamedTuple):
+    """Specify the location of a file that is located in a (potentially compressed) .tar archive."""
+    tar_filename: str # location of the .tar file itself
+    filename: str # location of the file inside the .tar file
+
+@dataclass
+class ProteomeTar:
+    """
+    Describe a .tar file containing multiple MSAs.
+    
+    The .tar file is expected to contain multiple MSAs files, each of which containing a UniProt identifier in their name.
+    """
+    tar_filename: str
+    proteome_name: str
+
+    def __init__(self, tar_filename: str, proteome_name: str = None):
+        self.tar_filename = tar_filename
+        if proteome_name is None: # try to extract proteome name from tar filename if not given
+            proteome_name, _ = os.path.splitext(os.path.basename(self.tar_filename))
+        self.proteome_name = proteome_name
+
+        if tar_filename.endswith(".tar.gz"):
+            warn_once(
+                f"iterating a .tar.gz file is much slower than just using the already-deflated .tar file"
+            )
+    
+    def get_protein_location(self, uniprot_id: str) -> TarLoc:
+        """Get the location of the MSA file for a specific protein."""
+        filename = os.path.join(self.proteome_name, "msas", f"{uniprot_id}.a3m")
+        return TarLoc(self.tar_filename, filename)
 
 @lru_cache(None)
 def warn_once(msg: str):
@@ -45,7 +77,12 @@ def as_handle(filething, mode="r", **kwargs) -> IO:
     Transparent context manager for working with files. You can pass a filename as a `str`, `Path` or an actual file
     object to this function. The function will try to create a handle if necessary.
     """
-    if isinstance(filething, io.TextIOWrapper):
+    if isinstance(filething, TarLoc):
+        with tarfile.open(filething.tar_filename) as tar:
+            with tar.extractfile(filething.filename) as fh:
+                with io.TextIOWrapper(fh, encoding="utf-8") as wrapper:
+                    yield wrapper
+    elif isinstance(filething, io.TextIOWrapper):
         yield filething
     else:
         try:

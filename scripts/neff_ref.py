@@ -4,7 +4,7 @@ import json
 import sys
 import os
 import argparse
-from af22c.proteome import MultipleSeqAlign
+from af22c.neff_ref import neff_ref
 
 def main(args=sys.argv):
   # parse arguments
@@ -22,8 +22,7 @@ def main(args=sys.argv):
   parser.add_argument("-l", "--gpu-mem-limit", type=str, required=False, metavar="?", default=None, help=compli)
   args = parser.parse_args(args[1:])
   
-  msa = MultipleSeqAlign.from_a3m(args.INFILE)
-  scores = msa.compute_neff()
+  scores = neff_ref(args.INFILE)
   args.OUTFILE.write(json.dumps(scores.tolist()))
   args.OUTFILE.write("\n")
   
