@@ -43,19 +43,18 @@ SEQWENCE
 --QEEN--
 >>> # calculate Neff and gapcount scores for the MSA
 >>> neff(msa, device="cuda")
-tensor([1., 1., 3., 3., 3., 3., 2., 2.])
+tensor([1., 1., 3., 3., 3., 3., 2., 2.], device='cuda:0')
 >>> gapcount(msa, device="cuda")
-tensor([3, 3, 0, 0, 0, 0, 2, 2])
+tensor([3, 3, 0, 0, 0, 0, 2, 2], device='cuda:0')
 ```
 
-In our case, we have MSAs for the entire human proteome. They are inside a .tar file. With our library, you can extract .a3m MSA files from a .tar file and use it as an input for score calculation. In the following, we show how you can calculate an protein-specific average Neff score for [APP](https://en.wikipedia.org/wiki/Amyloid-beta_precursor_protein).
+In our case, we have MSAs for the entire human proteome. They are inside a .tar file. With our library, you can extract .a3m MSA files from a .tar file and use it as an input for score calculation. In the following, we show how you can calculate an protein-specific average Neff score for [APP](https://en.wikipedia.org/wiki/Amyloid-beta_precursor_protein). Note that a `ProteomeTar` can be indexed using the `/` operator; like in the example below, where the .tar file containing all human proteins is indexed with Q92624, corresponding to APP.
 
 ```python
 >>> from af22c import neff
 >>> from af22c.utils import ProteomeTar
 >>> human = ProteomeTar("data/UP000005640_9606.tar")
->>> app = human.get_protein_location("Q92624")
->>> neff(app, device="cuda").mean()
+>>> neff(human / "Q92624", device="cuda").mean()
 tensor(209.4100, device='cuda:0')
 ```
 
