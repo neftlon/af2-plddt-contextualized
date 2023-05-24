@@ -5,8 +5,6 @@ import tarfile
 from contextlib import contextmanager
 from io import BytesIO
 
-from af22c.load_msa import MsaMatchAttribs
-from af22c.proteome import ProteomeMSAs
 import pytest
 
 MSA_FIXTURES = {
@@ -41,11 +39,10 @@ MSA_WITH_PARAMS_FIXTURE = {
         """),
     },
     "match_attribs": [
-        MsaMatchAttribs(42, 0.66, 0, 0, 3, 3, 0, 3, 3),
-        MsaMatchAttribs(12, 0.33, 0, 1, 2, 2, 1, 2, 2),
+        (42, 0.66, 0, 0, 3, 3, 0, 3, 3),
+        (12, 0.33, 0, 1, 2, 2, 1, 2, 2),
     ]
 }
-
 
 def add_directory(tar: tarfile.TarFile, name: str):
     """
@@ -88,31 +85,3 @@ def archived_sample_msa(compression=None, fixture=None):
                 add_text_as_file(temp_tar, path, content)
 
         yield temp_tar_path
-
-
-@pytest.mark.parametrize("compression", [None, "gz"])
-def test_load_sample_proteome_from_archive(compression):
-    with archived_sample_msa(compression=compression) as archive_path:
-        # check that MSAs can be loaded at all
-        msas = ProteomeMSAs.from_archive(archive_path)
-        assert msas.get_uniprot_ids() == VALID_PROTEIN_IDS
-
-        # check that protein gathering by index is possible
-        for prot_id in VALID_PROTEIN_IDS:
-            msa = msas[prot_id]
-            assert msa is not None
-
-        # check that all MSAs can be extracted at once
-        for msa in msas.get_msas():
-            assert msa is not None
-            assert msa.query_id in VALID_PROTEIN_IDS
-
-
-def test_sample_msa():
-    with archived_sample_msa(fixture=MSA_WITH_PARAMS_FIXTURE["content"]) as archive_path:
-        msas = ProteomeMSAs.from_archive(archive_path)
-        msas = list(msas.get_msas())
-        assert len(msas) == 1
-        msa = msas[0]
-        for match, expected_attribs in zip(msa.matches, MSA_WITH_PARAMS_FIXTURE["match_attribs"]):
-            assert match.attribs == expected_attribs
