@@ -47,6 +47,10 @@ class ProteomeTar:
         """Get the location of the MSA file for a specific protein."""
         filename = os.path.join(self.proteome_name, "msas", f"{uniprot_id}.a3m")
         return TarLoc(self.tar_filename, filename)
+    
+    def __truediv__(self, uniprot_id: str) -> TarLoc:
+        """Shortcut for `get_protein_location`"""
+        return self.get_protein_location(uniprot_id)
 
 @lru_cache(None)
 def warn_once(msg: str):
