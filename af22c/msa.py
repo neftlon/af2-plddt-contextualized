@@ -26,8 +26,7 @@ def loadmsa(path, stoi):
          continue
       # encode sequence
       encmsa[idx,:] = torch.tensor(
-        # NB: stoi comes from outside!
-        [stoi[ch] for ch in seq[:-1] if not ch in ascii_lowercase],
+        [stoi[ch] for ch in seq.rstrip() if not ch in ascii_lowercase],
         dtype=torch.uint8,
       )
       idx += 1
@@ -54,13 +53,10 @@ class EncMsa(NamedTuple):
     params = self._asdict()
     params["data"] = self.data.to(device)
     return EncMsa(**params)
-
-@contextmanager
-def as_encmsa(thing):
-  """convert "any"`thing` (that is convertible to MSA) to an MSA"""
-  if isinstance(thing, EncMsa): # invariant against `EncMsa`s
-    yield thing
-  else:
+  
+  @classmethod
+  def from_thing(cls, thing):
+    """create a new EncMsa from a torch.Tensor, file, or list of strs"""
     # vocabulary and conversion
     vocab = '-ACDEFGHIKLMNPQRSTVWXY' # TODO: do we want to infer vocab?
     stoi = {c:i for i, c in enumerate(vocab)}
@@ -70,7 +66,11 @@ def as_encmsa(thing):
     # try to convert the MSA if not done yet
     if isinstance(thing, torch.Tensor):
       encmsa = thing
-    elif isinstance(thing, str) or isinstance(thing, io.TextIOWrapper) or isinstance(thing, TarLoc):
+    elif (
+      isinstance(thing, str) or
+      isinstance(thing, io.TextIOWrapper) or
+      isinstance(thing, TarLoc)
+    ):
       encmsa = loadmsa(thing, stoi)
     elif isinstance(thing, list):
       encseqs = []
@@ -83,4 +83,12 @@ def as_encmsa(thing):
       encmsa = torch.tensor(encseqs, dtype=torch.uint8)
     else:
       raise ValueError(f"unable to interpret type of input as msa ({type(thing)=})")
-    yield EncMsa(vocab, stoi, itos, encmsa, gaptok)
+    return cls(vocab, stoi, itos, encmsa, gaptok)
+
+@contextmanager
+def as_encmsa(thing):
+  """convert "any"`thing` (that is convertible to MSA) to an MSA"""
+  if isinstance(thing, EncMsa): # invariant against `EncMsa`s
+    yield thing
+  else:
+    yield EncMsa.from_thing(thing)
