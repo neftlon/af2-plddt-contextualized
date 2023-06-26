@@ -83,11 +83,11 @@ def henikoff_seq_weights(msa, verbose=0):
     # normalize sequence weights on the way out
     return w.mean(dim=1)
 
-def identity_seq_weights(msa):
+def identity_seq_weights(msa, seqid_thres=.8):
   """
-  Calculate identity based sequence wjjjeights.
+  Calculate identity based sequence weights.
   """
-  return 1 / torch.sum(pwseq(msa, verbose=1) >= .8, dim=0)
+  return 1. / torch.sum(pwseq(msa, verbose=1) >= seqid_thres, dim=0)
 
 def gapcount(msa, weights=None, nongap=False, **kwargs):
   """
