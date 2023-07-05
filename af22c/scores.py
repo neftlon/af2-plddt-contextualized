@@ -46,10 +46,14 @@ def pwseq(msa, device=None, batch_size=2**12, verbose=False, **kwargs):
     
     return bpwseq
 
-def henikoff_seq_weights(msa, verbose=0):
+def henikoff_seq_weights(msa, flavor="vanilla", verbose=0):
   """
   Calculate "correct position-based sequence weight" by method from
   Henikoff and Henikoff 1994.
+
+  Args:
+    flavor: "vanilla" or "mmseqs"
+    verbose: if True, show progress bar
   """
   with as_encmsa(msa):
     # on-demand verbose range
@@ -57,31 +61,45 @@ def henikoff_seq_weights(msa, verbose=0):
       trange(*params, desc=desc)
       if verbose else range(*params)
     )
-    
-    # count number of unique residues in each column, hopefully this can
-    # be done more efficient
-    r = []
-    for j in vrange("count unique residues", msa.data.shape[1]):
-      _, cnts = msa.data[:,j].unique(return_counts=True)
-      r += [len(cnts)]
-    r = torch.tensor(r,dtype=torch.long)
-    
+
+    # TODO: treat "X" as gap character
+
     # count number of sequences containing a specific amino acid, this
     # also looks like it could be sped up
     s = torch.zeros(msa.data.shape[1],len(msa.vocab),dtype=torch.long)
-    for j in vrange("count seqs with AA", msa.data.shape[1]):
-      for i in range(msa.data.shape[0]):
+    for j in vrange("count seqs with AA", msa.data.shape[1]): # position j
+      for i in range(msa.data.shape[0]): # sequence i
         s[j, msa.data[i,j].item()] += 1
-        
+
+    # count number of unique residues in each column
+    assert msa.stoi['-'] == 0, "gap must be encoded as 0"
+    r = torch.count_nonzero(s[:, 1:], dim=1) # "1:" to ignore gap character when counting AAs
+    
     # calculate position specific sequence weights
     w = torch.zeros_like(msa.data, dtype=torch.float32)
-    for j in vrange("calc weights", msa.data.shape[0]): # sequence j
-      for i in range(msa.data.shape[1]): # position i
-        a = msa.data[j,i]
-        w[j,i] = 1. / (r[i] * s[i, a.item()])
+    if flavor == "vanilla":
+      for j in vrange("calc weights", msa.data.shape[0]): # sequence j
+        for i in range(msa.data.shape[1]): # position i
+          a = msa.data[j,i].item()
+          if a != msa.stoi['-']:
+            w[j,i] = 1. / (r[i] * s[i, a])
+
+      # normalize sequence weights on the way out
+      return w.mean(dim=1)
+    elif flavor == "mmseqs":
+      nongap_per_row = (msa.data != msa.stoi['-']).sum(1) # number_res
+      
+      for j in vrange("calc weights", msa.data.shape[0]): # sequence j
+        for i in range(msa.data.shape[1]): # position i
+          a = msa.data[j,i]
+          if a != msa.stoi['-']:
+            w[j,i] = 1. / (r[i] * s[i, a.item()] * (nongap_per_row[j] + 30.))
+      
+      w = w.sum(dim=1)
+      return w / w.sum()
+    else:
+      raise ValueError("unknown flavor, must be 'vanilla' or 'mmseqs'")
     
-    # normalize sequence weights on the way out
-    return w.mean(dim=1)
 
 def identity_seq_weights(msa, seqid_thres=.8):
   """
